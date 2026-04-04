@@ -1,6 +1,6 @@
 # [修改原因]: 兼容低版本 Python 中的 `str | None` 类型注解
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException, Request, Form, Response, Cookie
+from fastapi import FastAPI, HTTPException, Request, Form, Response, Cookie, Query, Header
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import os
 import yaml
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 from openai import OpenAI
 import markdown2
@@ -636,10 +637,11 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
         raise HTTPException(status_code=500, detail="消息发送失败，请检查服务器日志")
 
 @app.get("/api/messages/receive", summary="接收消息接口")
-async def receive_messages(authorization: str = Header(None)):
+async def receive_messages(authorization: str = Header(None), status: Optional[str] = Query(None)):
     """
     [修改原因]: API 收件也改为验证 Token，只有提供正确的 Key 才能看自己的收件箱。并拦截禁用账号。
     [新增权限控制]: 如果接收者不属于任何项目，则禁止拉取收件箱。
+    [修改原因]: 支持按 status 过滤（例如 ?status=unread），满足 AI Agent 增量拉取需求。
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
@@ -659,11 +661,37 @@ async def receive_messages(authorization: str = Header(None)):
         raise HTTPException(status_code=403, detail="您不属于任何项目，无法拉取收件箱")
 
     try:
-        messages = message_manager.get_inbox_messages(emp_id)
+        messages = message_manager.get_inbox_messages(emp_id, status=status)
         return {"status": "success", "data": messages}
     except Exception as e:
         logger.error(f"读取收件箱失败: {e}")
         raise HTTPException(status_code=500, detail="收件箱读取失败")
+
+@app.post("/api/messages/{msg_id}/read", summary="标记消息为已读接口")
+async def mark_message_read(msg_id: str, authorization: str = Header(None)):
+    """
+    [新增原因]: AI Agent 处理完消息后主动 ACK 确认（防止消息丢失，科学做法）。
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
+        
+    private_key = authorization.split(" ")[1]
+    emp_id = db_manager.get_user_by_key(private_key, active_only=True)
+    
+    if not emp_id:
+        raise HTTPException(status_code=403, detail="无效或已禁用的身份凭证")
+
+    try:
+        success = message_manager.mark_message_as_read(msg_id, emp_id)
+        if success:
+            return {"status": "success", "message": "消息已标记为已读"}
+        else:
+            raise HTTPException(status_code=404, detail="找不到对应的未读消息或权限不足")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"标记消息已读失败: {e}")
+        raise HTTPException(status_code=500, detail="服务器内部错误")
 
 @app.get("/api/messages/sent", summary="获取发件箱接口")
 async def sent_messages(authorization: str = Header(None)):
@@ -694,8 +722,6 @@ async def sent_messages(authorization: str = Header(None)):
     except Exception as e:
         logger.error(f"读取发件箱失败: {e}")
         raise HTTPException(status_code=500, detail="发件箱读取失败")
-
-from typing import Optional
 
 @app.get("/api")
 async def api_docs(request: Request, format: Optional[str] = None, emp_id: str = Cookie(None), private_key: str = Cookie(None)):

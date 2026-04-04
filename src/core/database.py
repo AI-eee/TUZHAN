@@ -234,14 +234,20 @@ class DatabaseManager:
             conn.commit()
     # -----------------------------------------------------
 
-    def get_messages_for_user(self, user: str) -> list:
+    def get_messages_for_user(self, user: str, status: Optional[str] = None) -> list:
         """获取某个用户的收件箱列表"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM messages WHERE receiver = ? ORDER BY created_at DESC", 
-                (user,)
-            )
+            if status:
+                cursor.execute(
+                    "SELECT * FROM messages WHERE receiver = ? AND status = ? ORDER BY created_at DESC", 
+                    (user, status)
+                )
+            else:
+                cursor.execute(
+                    "SELECT * FROM messages WHERE receiver = ? ORDER BY created_at DESC", 
+                    (user,)
+                )
             return [dict(row) for row in cursor.fetchall()]
 
     def get_sent_messages_for_user(self, user: str) -> list:
@@ -260,6 +266,17 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM messages ORDER BY created_at DESC")
             return [dict(row) for row in cursor.fetchall()]
+
+    def mark_message_as_read(self, msg_id: str, receiver: str) -> bool:
+        """[新增原因]：为 AI Agent 增加消息 ACK 确认机制，标记消息为已读"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE messages SET status = 'read' WHERE id = ? AND receiver = ?", 
+                (msg_id, receiver)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
 
     def get_all_users(self) -> list:
         """[新增原因]：为管理员后台获取所有的用户信息"""

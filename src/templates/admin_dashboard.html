@@ -431,9 +431,10 @@
                             </td>
                             <td>
                                 {% if msg.status == 'unread' %}
-                                    <span style="color: var(--tz-primary); font-weight: 500;">未读</span>
+                                    <!-- [修改原因]: 文案调整，明确“未读”指的是“Agent待处理”，人类查看不会改变此状态 -->
+                                    <span style="color: var(--tz-primary); font-weight: 500;">Agent 待处理 (未读)</span>
                                 {% else %}
-                                    <span style="color: var(--tz-success); font-weight: 500;">已读</span>
+                                    <span style="color: var(--tz-success); font-weight: 500;">Agent 已处理 (已读)</span>
                                 {% endif %}
                             </td>
                         </tr>

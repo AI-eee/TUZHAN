@@ -148,7 +148,11 @@
 
     .message-time {
         color: var(--tz-text-muted);
-        font-size: 12px;
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+        width: 155px; /* [修改原因] 增加宽度以容纳完整时间字符串 */
+        text-align: right;
+        white-space: nowrap; /* [修改原因] 强制时间不换行 */
     }
 
     .message-content {
@@ -424,7 +428,7 @@
                     {% for msg in messages %}
                         <li class="message-item">
                             <div class="message-header" onclick="this.nextElementSibling.classList.toggle('expanded')">
-                                <div>来自: <span class="message-sender">
+                                <div style="display: flex; align-items: center; gap: 8px;">来自: <span class="message-sender">
                                     {% if msg.metadata.sender == current_emp_id %}我{% else %}
                                         {% set ns = namespace(found=false) %}
                                         {% for u in all_users %}
@@ -432,8 +436,17 @@
                                         {% endfor %}
                                         {% if not ns.found %}{{ msg.metadata.sender }}{% endif %}
                                     {% endif %}
-                                </span></div>
-                                <div class="message-time">{{ msg.metadata.timestamp }}</div>
+                                </span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <!-- [修改原因]: 前端增加 Agent 处理状态提示，且不提供人为修改状态的操作 -->
+                                    {% if msg.metadata.status == 'unread' %}
+                                        <span style="font-size: 12px; color: var(--tz-primary); font-weight: 500; border: 1px solid var(--tz-primary); border-radius: 4px; padding: 2px 6px;">Agent待处理</span>
+                                    {% else %}
+                                        <span style="font-size: 12px; color: var(--tz-success); font-weight: 500; border: 1px solid var(--tz-success); border-radius: 4px; padding: 2px 6px;">Agent已处理</span>
+                                    {% endif %}
+                                    <div class="message-time">{{ msg.metadata.timestamp }}</div>
+                                </div>
                             </div>
                             <div class="message-content">
                                 <button class="copy-md-btn" title="复制原始 Markdown" onclick="copyMarkdown(this)">
@@ -463,7 +476,7 @@
                     {% for msg in sent_messages %}
                         <li class="message-item">
                             <div class="message-header" onclick="this.nextElementSibling.classList.toggle('expanded')">
-                                <div>发给: <span class="message-sender">
+                                <div style="display: flex; align-items: center; gap: 8px;">发给: <span class="message-sender">
                                     {% set rec_list = msg.metadata.receiver.split(',') %}
                                     {% set rec_display = [] %}
                                     {% for r in rec_list %}
@@ -477,8 +490,17 @@
                                         {% endif %}
                                     {% endfor %}
                                     {{ rec_display | join(', ') }}
-                                </span></div>
-                                <div class="message-time">{{ msg.metadata.timestamp }}</div>
+                                </span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <!-- [修改原因]: 前端增加对方 Agent 处理状态提示 -->
+                                    {% if msg.metadata.status == 'unread' %}
+                                        <span style="font-size: 12px; color: var(--tz-gray-500); font-weight: 500; border: 1px solid var(--tz-gray-500); border-radius: 4px; padding: 2px 6px;">对方Agent待处理</span>
+                                    {% else %}
+                                        <span style="font-size: 12px; color: var(--tz-success); font-weight: 500; border: 1px solid var(--tz-success); border-radius: 4px; padding: 2px 6px;">对方Agent已处理</span>
+                                    {% endif %}
+                                    <div class="message-time">{{ msg.metadata.timestamp }}</div>
+                                </div>
                             </div>
                             <div class="message-content">
                                 <button class="copy-md-btn" title="复制原始 Markdown" onclick="copyMarkdown(this)">

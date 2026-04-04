@@ -213,7 +213,7 @@ with open(env_file, 'w', encoding='utf-8') as f:
 
 ---
 
-### BUG-20: 消息状态永久为 "unread"，缺少已读标记机制
+### BUG-20: 消息状态永久为 "unread"，缺少已读标记机制 — ✅ 已修复
 
 **文件**: `src/core/database.py`, `src/api/server.py`
 
@@ -224,7 +224,7 @@ with open(env_file, 'w', encoding='utf-8') as f:
 
 **影响**: 管理员后台的 "已读/未读" 状态永远显示为 "未读"，该功能形同虚设，且可能误导管理员认为所有消息均未被查阅。
 
-**修复建议**: 在 `DatabaseManager` 中新增 `mark_messages_as_read(receiver)` 方法，并在 `GET /dashboard` 和 `GET /api/messages/receive` 中调用，或提供独立的 `POST /api/messages/read` 接口。
+**修复方案**: 已采用更科学的 ACK 机制，新增独立的 `POST /api/messages/{id}/read` 接口供 AI Agent 在处理完消息后主动标记已读；同时在 `GET /api/messages/receive` 中增加了 `?status=unread` 过滤功能。后台也可以正常查看已读状态。
 
 ---
 
