@@ -338,6 +338,16 @@ class DatabaseManager:
             row = cursor.fetchone()
             return row["emp_id"] if row else None
 
+    def get_user_by_nickname(self, nickname: str) -> Optional[dict]:
+        """[新增原因]：通过 nickname 获取用户，用于校验昵称唯一性"""
+        if not nickname:
+            return None
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE nickname = ?", (nickname,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
     def update_user_key_by_emp_id(self, emp_id: str, new_key: str) -> bool:
         """[新增原因]：为管理员提供根据工号重新生成 Private Key 的能力"""
         with self.get_connection() as conn:

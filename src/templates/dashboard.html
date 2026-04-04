@@ -3,6 +3,14 @@
 {% block title %}工作台 - TUZHAN 协作中心{% endblock %}
 
 {% block page_head %}
+
+    <!-- [新增原因]: 引入 Highlight.js 实现代码块高亮 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-light.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <!-- [新增原因]: 引入 EasyMDE 实现 Markdown 编辑器体验 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+
 <style>
     .dashboard-projects {
         background: var(--tz-bg-card);
@@ -196,6 +204,103 @@
         flex-direction: column;
         gap: 16px;
     }
+
+    /* [新增原因]: Markdown 复制按钮样式 */
+    .copy-md-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid var(--tz-border);
+        border-radius: 6px;
+        padding: 6px;
+        cursor: pointer;
+        color: var(--tz-text-muted);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    .copy-md-btn:hover {
+        color: var(--tz-primary);
+        border-color: var(--tz-primary);
+        background: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    /* 分页控件样式 */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
+    }
+    .page-btn {
+        padding: 6px 12px;
+        border: 1px solid var(--tz-border);
+        background: #fff;
+        color: var(--tz-text-primary);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+    .page-btn:hover:not(:disabled) {
+        border-color: var(--tz-primary);
+        color: var(--tz-primary);
+    }
+    .page-btn.active {
+        background: var(--tz-primary);
+        color: #fff;
+        border-color: var(--tz-primary);
+    }
+    .page-btn:disabled {
+        background: var(--tz-gray-100);
+        color: var(--tz-gray-400);
+        cursor: not-allowed;
+    }
+    /* 折叠展开支持 */
+    .message-content {
+        display: none;
+        position: relative;
+    }
+    .message-content.expanded {
+        display: block;
+    }
+    .message-header {
+        cursor: pointer;
+    }
+    .message-header:hover {
+        background-color: var(--tz-gray-100);
+    }
+    /* EasyMDE & HighlightJS override */
+    .hljs {
+        background: var(--tz-gray-50);
+        border: 1px solid var(--tz-border);
+        border-radius: 6px;
+        padding: 1em;
+    }
+    .editor-toolbar a.active, .editor-toolbar a:hover {
+        color: var(--tz-primary) !important;
+        border-color: var(--tz-primary) !important;
+        background: var(--tz-primary-light) !important;
+    }
+    .CodeMirror {
+        border-color: var(--tz-border) !important;
+        border-radius: 0 0 var(--tz-radius-md) var(--tz-radius-md) !important;
+        font-family: inherit !important;
+        font-size: 14px !important;
+    }
+    .editor-toolbar {
+        border-color: var(--tz-border) !important;
+        border-radius: var(--tz-radius-md) var(--tz-radius-md) 0 0 !important;
+        opacity: 0.9;
+    }
+    .CodeMirror-focused {
+        border-color: var(--tz-primary) !important;
+        box-shadow: 0 0 0 3px var(--tz-primary-light) !important;
+    }
+
 </style>
 {% endblock %}
 
@@ -235,19 +340,32 @@
                         <p>收件箱空空如也</p>
                     </div>
                 {% else %}
-                    <ul class="message-list">
+                    <ul class="message-list" id="inbox-list">
                     {% for msg in messages %}
                         <li class="message-item">
-                            <div class="message-header">
-                                <div>来自: <span class="message-sender">{{ msg.metadata.sender }}</span></div>
+                            <div class="message-header" onclick="this.nextElementSibling.classList.toggle('expanded')">
+                                <div>来自: <span class="message-sender">
+                                    {% if msg.metadata.sender == current_emp_id %}我{% else %}
+                                        {% set ns = namespace(found=false) %}
+                                        {% for u in all_users %}
+                                            {% if u.emp_id == msg.metadata.sender %}{{ u.nickname or u.emp_id }}({{ msg.metadata.sender }}){% set ns.found = true %}{% endif %}
+                                        {% endfor %}
+                                        {% if not ns.found %}{{ msg.metadata.sender }}{% endif %}
+                                    {% endif %}
+                                </span></div>
                                 <div class="message-time">{{ msg.metadata.timestamp }}</div>
                             </div>
                             <div class="message-content">
+                                <button class="copy-md-btn" title="复制原始 Markdown" onclick="copyMarkdown(this)">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
+                                <textarea class="raw-markdown-content" style="display:none;">{{ msg.content | e }}</textarea>
                                 {{ msg.content | render_markdown | safe }}
                             </div>
                         </li>
                     {% endfor %}
                     </ul>
+                    <div id="inbox-pagination" class="pagination"></div>
                 {% endif %}
             </div>
 
@@ -261,19 +379,38 @@
                         <p>发件箱空空如也</p>
                     </div>
                 {% else %}
-                    <ul class="message-list">
+                    <ul class="message-list" id="outbox-list">
                     {% for msg in sent_messages %}
                         <li class="message-item">
-                            <div class="message-header">
-                                <div>发给: <span class="message-sender">{{ msg.metadata.receiver }}</span></div>
+                            <div class="message-header" onclick="this.nextElementSibling.classList.toggle('expanded')">
+                                <div>发给: <span class="message-sender">
+                                    {% set rec_list = msg.metadata.receiver.split(',') %}
+                                    {% set rec_display = [] %}
+                                    {% for r in rec_list %}
+                                        {% set r = r.strip() %}
+                                        {% if r == current_emp_id %}{% set _ = rec_display.append("我") %}{% else %}
+                                            {% set ns = namespace(found=false) %}
+                                            {% for u in all_users %}
+                                                {% if u.emp_id == r %}{% set _ = rec_display.append((u.nickname or u.emp_id) ~ "(" ~ r ~ ")") %}{% set ns.found = true %}{% endif %}
+                                            {% endfor %}
+                                            {% if not ns.found %}{% set _ = rec_display.append(r) %}{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {{ rec_display | join(', ') }}
+                                </span></div>
                                 <div class="message-time">{{ msg.metadata.timestamp }}</div>
                             </div>
                             <div class="message-content">
+                                <button class="copy-md-btn" title="复制原始 Markdown" onclick="copyMarkdown(this)">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
+                                <textarea class="raw-markdown-content" style="display:none;">{{ msg.content | e }}</textarea>
                                 {{ msg.content | render_markdown | safe }}
                             </div>
                         </li>
                     {% endfor %}
                     </ul>
+                    <div id="outbox-pagination" class="pagination"></div>
                 {% endif %}
             </div>
 
@@ -324,15 +461,15 @@
                     </div>
                 </div>
 
-                <form action="/dashboard/profile" method="post" class="profile-edit">
+                <form id="profile-form" onsubmit="submitProfileForm(event)" class="profile-edit">
                     <h3>个人资料编辑</h3>
                     <div class="tz-form-group">
                         <label>展示昵称 (Nickname)</label>
-                        <input type="text" name="nickname" value="{{ user_info.nickname if user_info and user_info.nickname else '' }}" placeholder="请输入您希望展示的昵称...">
+                        <input type="text" name="nickname" id="profile-nickname" value="{{ user_info.nickname if user_info and user_info.nickname else '' }}" placeholder="请输入您希望展示的昵称...">
                     </div>
                     <div class="tz-form-group">
                         <label>个人简介 (Bio)</label>
-                        <textarea name="bio" placeholder="简单介绍一下自己，或者您的 Agent 职责..." style="min-height: 100px;">{{ user_info.bio if user_info and user_info.bio else '' }}</textarea>
+                        <textarea name="bio" id="profile-bio" placeholder="简单介绍一下自己，或者您的 Agent 职责..." style="min-height: 100px;">{{ user_info.bio if user_info and user_info.bio else '' }}</textarea>
                     </div>
                     <button type="submit" class="tz-btn-primary" style="align-self: flex-start;">保存个人资料</button>
                 </form>
@@ -345,6 +482,144 @@
 
 {% block page_scripts %}
 <script>
+
+    // [新增原因]: 复制 Markdown 内容
+    function copyMarkdown(btn) {
+        const contentDiv = btn.closest('.message-content');
+        const rawMd = contentDiv.querySelector('.raw-markdown-content').value;
+        navigator.clipboard.writeText(rawMd).then(() => {
+            TZUI.toast('Markdown 已复制到剪贴板', 'success');
+            const svg = btn.querySelector('svg');
+            const originalHTML = svg.innerHTML;
+            svg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+            setTimeout(() => { svg.innerHTML = originalHTML; }, 2000);
+        }).catch(err => {
+            console.error('复制失败:', err);
+            TZUI.toast('复制失败，请手动选择复制', 'error');
+        });
+    }
+
+    // [新增原因]: 提交个人资料表单
+    async function submitProfileForm(event) {
+        event.preventDefault();
+        const nickname = document.getElementById('profile-nickname').value;
+        const bio = document.getElementById('profile-bio').value;
+        
+        const formData = new FormData();
+        formData.append('nickname', nickname);
+        formData.append('bio', bio);
+        
+        try {
+            const response = await fetch('/dashboard/profile', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                TZUI.toast('个人资料保存成功！', 'success');
+                const headerNickname = document.querySelector('.header-right strong');
+                if (headerNickname && nickname.trim() !== '') {
+                    headerNickname.innerText = nickname;
+                }
+            } else {
+                TZUI.toast('保存失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('请求出错:', error);
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
+    }
+
+    // [新增原因]: 分页逻辑
+    function setupPagination(listId, paginationId, itemsPerPage = 50) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        const items = list.querySelectorAll('.message-item');
+        if (items.length <= itemsPerPage) return;
+
+        const pagination = document.getElementById(paginationId);
+        const totalPages = Math.ceil(items.length / itemsPerPage);
+        let currentPage = 1;
+
+        function renderPage(page) {
+            currentPage = page;
+            items.forEach((item, index) => {
+                item.style.display = (index >= (page - 1) * itemsPerPage && index < page * itemsPerPage) ? '' : 'none';
+            });
+            renderButtons();
+        }
+
+        function renderButtons() {
+            pagination.innerHTML = '';
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'page-btn'; prevBtn.innerText = '上一页';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => renderPage(currentPage - 1);
+            pagination.appendChild(prevBtn);
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (totalPages > 10 && i !== 1 && i !== totalPages && Math.abs(i - currentPage) > 2) {
+                    if (i === 2 || i === totalPages - 1) {
+                        const span = document.createElement('span');
+                        span.innerText = '...'; span.style.padding = '6px';
+                        pagination.appendChild(span);
+                    }
+                    continue;
+                }
+                const btn = document.createElement('button');
+                btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+                btn.innerText = i;
+                btn.onclick = () => renderPage(i);
+                pagination.appendChild(btn);
+            }
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'page-btn'; nextBtn.innerText = '下一页';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => renderPage(currentPage + 1);
+            pagination.appendChild(nextBtn);
+        }
+        renderPage(1);
+    }
+
+    let easymde = null;
+    document.addEventListener('DOMContentLoaded', () => {
+        setupPagination('inbox-list', 'inbox-pagination', 50);
+        setupPagination('outbox-list', 'outbox-pagination', 50);
+        
+        document.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+
+        const contentArea = document.getElementById('msg-content');
+        if (contentArea) {
+            easymde = new EasyMDE({
+                element: contentArea,
+                spellChecker: false,
+                status: false,
+                placeholder: "输入你想表达的内容，我们将通过 AI 为你格式化...",
+                renderingConfig: { codeSyntaxHighlighting: true },
+                toolbar: [
+                    "bold", "italic", "heading", "|",
+                    "quote", "code", "unordered-list", "ordered-list", "|",
+                    "link", "image", "|",
+                    "preview", "side-by-side", "fullscreen", "|", "guide"
+                ],
+                autoDownloadFontAwesome: true
+            });
+            easymde.codemirror.on("change", () => {
+                contentArea.value = easymde.value();
+                contentArea.dispatchEvent(new Event('input'));
+            });
+            easymde.codemirror.on("keydown", (cm, e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('action-btn').click();
+                }
+            });
+        }
+    });
+
     // Tab switching with hash memory
     function switchTab(tabId, element) {
         document.querySelectorAll('.tz-tab-content').forEach(c => c.classList.remove('active'));
@@ -503,6 +778,7 @@
                         if (finalMd.endsWith("```")) finalMd = finalMd.substring(0, finalMd.length - 3);
                     }
                     contentArea.value = finalMd.trim();
+                    if (easymde) { easymde.value(finalMd.trim()); }
                     state = 1;
                     actionBtn.innerHTML = '确认发送 <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span>';
                     actionBtn.style.background = "linear-gradient(135deg, var(--tz-success), #2dd36f)";

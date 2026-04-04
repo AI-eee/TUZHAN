@@ -38,10 +38,24 @@ def safe_markdown_filter(text):
     if not text:
         return ""
     # 1. 转换 markdown 为 HTML
-    html = markdown2.markdown(text)
+    # [修改原因]: 启用 fenced-code-blocks 才能识别代码块，启用 tables 等增强 Markdown 体验。
+    # 增加 highlightjs-lang 禁用默认的 Pygments，方便前端统一接管语法高亮
+    html = markdown2.markdown(text, extras=["fenced-code-blocks", "highlightjs-lang", "tables", "break-on-newline", "strike"])
     # 2. 清洗 HTML
-    allowed_tags = list(bleach.ALLOWED_TAGS) + ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'pre', 'code', 'blockquote', 'hr', 'img']
-    allowed_attrs = {**bleach.ALLOWED_ATTRIBUTES, 'img': ['src', 'alt', 'title']}
+    allowed_tags = list(bleach.ALLOWED_TAGS) + [
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'pre', 'code', 
+        'blockquote', 'hr', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'del', 'span'
+    ]
+    # [修改原因]: 允许 class 属性以便前端 Highlight.js 根据 class 名(如 language-python) 高亮
+    allowed_attrs = {
+        **bleach.ALLOWED_ATTRIBUTES, 
+        'img': ['src', 'alt', 'title'],
+        'code': ['class'],
+        'pre': ['class'],
+        'span': ['class', 'style'],
+        'th': ['align'],
+        'td': ['align']
+    }
     clean_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attrs)
     return clean_html
 
@@ -155,10 +169,15 @@ async def dashboard(request: Request, emp_id: str = Cookie(None), private_key: s
             
     messages = message_manager.get_inbox_messages(emp_id)
     sent_messages = message_manager.get_outbox_messages(emp_id)
+    
+    # 获取所有用户，用于映射工号和昵称
+    all_users = db_manager.get_all_users()
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "current_emp_id": emp_id,
         "user_info": user_info,
+        "all_users": all_users,
         "projects": projects,
         "messages": messages,
         "sent_messages": sent_messages,
@@ -170,7 +189,14 @@ async def dashboard(request: Request, emp_id: str = Cookie(None), private_key: s
 async def admin_login_page(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None), admin_logged_in: str = Cookie(None)):
     """[新增原因]: 单独的管理员登录页面"""
     if admin_logged_in == "true" and _verify_session(emp_id, private_key):
-        return RedirectResponse(url="/admin/dashboard", status_code=303)
+        # [修改原因]: 增加对 is_admin 的二次校验，防止产生无限重定向循环 (BUG修复)
+        user_info = db_manager.get_user_info(emp_id)
+        if user_info and user_info.get("is_admin"):
+            return RedirectResponse(url="/admin/dashboard", status_code=303)
+        else:
+            response = templates.TemplateResponse("admin_login.html", {"request": request})
+            response.delete_cookie("admin_logged_in")
+            return response
     return templates.TemplateResponse("admin_login.html", {"request": request})
 
 @app.post("/admin/login")
@@ -455,15 +481,20 @@ async def update_profile(
 ):
     """[新增原因]: 用户更新个人资料"""
     if not private_key or db_manager.get_user_by_key(private_key, active_only=False) != emp_id:
-        return RedirectResponse(url="/", status_code=303)
+        return {"status": "error", "detail": "未授权"}
         
     user_info = db_manager.get_user_info(emp_id)
     if user_info and user_info.get("status") == "disabled":
-        return RedirectResponse(url="/", status_code=303)
+        return {"status": "error", "detail": "账号已被禁用"}
         
+    if nickname:
+        existing = db_manager.get_user_by_nickname(nickname)
+        if existing and existing["emp_id"] != emp_id:
+            return {"status": "error", "detail": "该昵称已被使用，请换一个以方便分辨"}
+            
     db_manager.update_user_profile(emp_id, nickname or "", bio or "")
     
-    return RedirectResponse(url="/dashboard#tab-profile", status_code=303)
+    return {"status": "success"}
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
 
