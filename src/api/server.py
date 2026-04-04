@@ -157,7 +157,7 @@ async def admin_login_page(request: Request, emp_id: str = Cookie(None), private
 
 @app.post("/admin/login")
 async def admin_login(request: Request, private_key: str = Form(...)):
-    """[新增原因]: 验证管理员身份"""
+    """[修改原因]: 验证管理员身份，改为检查 is_admin 字段而非硬编码 emp_id"""
     emp_id = db_manager.get_user_by_key(private_key, active_only=False)
     
     if not emp_id:
@@ -167,7 +167,7 @@ async def admin_login(request: Request, private_key: str = Form(...)):
         })
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         return templates.TemplateResponse("admin_login.html", {
             "request": request, 
             "error": "抱歉，您不是系统管理员，无权访问此页面。"
@@ -182,14 +182,13 @@ async def admin_login(request: Request, private_key: str = Form(...)):
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None), admin_logged_in: str = Cookie(None)):
     """
-    [新增原因]: 管理员后台，仅允许 TZzhjiac 的用户访问，且必须经过 /admin/login 登录。
-    [修改原因]: 管理员后台，必须通过 private_key 校验会话真实性，防止 Cookie 伪造绕过 (BUG-01 修复)。
+    [修改原因]: 管理员后台，改为检查 is_admin 字段而非硬编码 emp_id。
     """
     if not _verify_session(emp_id, private_key) or admin_logged_in != "true":
         return RedirectResponse(url="/admin/login", status_code=303)
 
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         # 如果不是管理员，强制踢回普通控制台或提示无权限
         return RedirectResponse(url="/admin/login", status_code=303)
         
@@ -245,7 +244,7 @@ async def regenerate_user_key(target_emp_id: str, emp_id: str = Cookie(None)):
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied: You are not the administrator.")
         
     # 查找被修改用户
@@ -274,7 +273,7 @@ async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id:
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     success = db_manager.update_user_identity(target_emp_id, req.identity_md)
@@ -293,7 +292,7 @@ async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     if req.status not in ["active", "disabled"]:
@@ -353,7 +352,7 @@ async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None)):
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -387,7 +386,7 @@ async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     if not req.emp_ids:
@@ -442,7 +441,7 @@ async def update_project_description(project_name: str, req: ProjectDescRequest,
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -468,7 +467,7 @@ async def remove_project_member(project_name: str, target_emp_id: str, emp_id: s
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -538,7 +537,7 @@ async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), admin_l
     if not emp_id or admin_logged_in != "true":
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     env_file = os.path.join(current_dir, '..', '..', '.env')
