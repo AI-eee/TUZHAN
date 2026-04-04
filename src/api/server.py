@@ -1,3 +1,5 @@
+# [修改原因]: 兼容低版本 Python 中的 `str | None` 类型注解
+from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Request, Form, Response, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
