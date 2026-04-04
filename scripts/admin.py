@@ -36,7 +36,7 @@ def get_db_path(env="development"):
 
 def sync_projects_to_db(env="development"):
     """
-    [修改原因]: 读取 org_chart.yaml，将其中的 Project 信息和员工角色(Role)同步到数据库的 users 表中
+    [修改原因]: 读取 org_chart.yaml，将其中的 Project 信息和员工角色(Role)同步到数据库的 projects 和 project_members 表中
     """
     db_path = get_db_path(env)
     db_manager = DatabaseManager(db_path)
@@ -47,12 +47,17 @@ def sync_projects_to_db(env="development"):
         
     projects = org_data.get('projects', [])
     
-    # 构建一个 {emp_id: [{"project": "TUZHAN", "role": "AI Architect"}, ...]} 的字典
-    # 同时收集 nickname 信息
-    user_projects = {}
+    # 收集用户信息
     user_nicknames = {}
     for proj in projects:
         proj_name = proj.get("name")
+        proj_desc = proj.get("description", "")
+        
+        # 添加项目
+        db_manager.add_project(proj_name, proj_desc)
+        # 更新项目描述（如果项目已存在）
+        db_manager.update_project_description(proj_name, proj_desc)
+        
         for member in proj.get("members", []):
             nickname = member.get("nickname")
             role = member.get("role", "Member")
@@ -63,19 +68,17 @@ def sync_projects_to_db(env="development"):
             
             if nickname:
                 user_nicknames[emp_id] = nickname
+                
+            # 确保用户存在
+            db_manager.ensure_user_exists(emp_id=emp_id, nickname=nickname)
             
-            if emp_id not in user_projects:
-                user_projects[emp_id] = []
-            user_projects[emp_id].append({"project": proj_name, "role": role})
+            # 添加项目成员
+            db_manager.add_project_member(proj_name, emp_id, role)
+            # 更新成员角色（如果已存在）
+            db_manager.update_project_member_role(proj_name, emp_id, role)
             
-    # 将汇总后的数据写入数据库
-    for emp_id, projs in user_projects.items():
-        nickname = user_nicknames.get(emp_id, "")
-        db_manager.ensure_user_exists(
-            emp_id=emp_id, 
-            nickname=nickname, 
-            projects_json=json.dumps(projs, ensure_ascii=False)
-        )
+    # 同步到旧的 JSON 字段以保持兼容性
+    db_manager.sync_projects_to_users_json()
         
     print(f"\n[{env.upper()} 环境] 组织架构(Projects)及工号信息已成功同步到数据库！\n")
 

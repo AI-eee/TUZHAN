@@ -41,25 +41,28 @@ class WorkspaceManager:
                 logger.error(f"解析组织架构配置文件失败: {e}")
                 return
 
-        departments = org_data.get('departments', [])
+        projects = org_data.get('projects', [])
         
         # 定义基础工作区路径
-        dept_workspace_root = os.path.join(self.workspace_root, "departments")
+        dept_workspace_root = os.path.join(self.workspace_root, "projects")
         emp_workspace_root = os.path.join(self.workspace_root, "employees")
 
-        # 遍历部门并创建对应工作区
-        for dept in departments:
+        # 遍历项目并创建对应工作区
+        for dept in projects:
             dept_name = dept.get('name')
             if not dept_name:
                 continue
                 
-            # 为部门创建 inbox/outbox
+            # 为项目创建 inbox/outbox
             dept_path = os.path.join(dept_workspace_root, dept_name)
             self._create_inbox_outbox(dept_path)
             
-            # 遍历部门下的员工并创建对应工作区
+            # 遍历项目下的员工并创建对应工作区
             members = dept.get('members', [])
-            for member_name in members:
+            for member in members:
+                member_name = member.get('emp_id')
+                if not member_name:
+                    continue
                 emp_path = os.path.join(emp_workspace_root, member_name)
                 self._create_inbox_outbox(emp_path)
                 

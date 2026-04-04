@@ -205,16 +205,9 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
             except:
                 u["projects_list"] = []
                 
-    # 读取 org_chart.yaml 供项目管理 Tab 使用
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    org_projects = []
-    try:
-        with open(org_file, 'r', encoding='utf-8') as f:
-            org_data = yaml.safe_load(f)
-            org_projects = org_data.get('projects', [])
-    except Exception as e:
-        logger.error(f"读取 org_chart.yaml 失败: {e}")
-                
+    # 使用 DB 中存储的项目信息
+    org_projects = db_manager.get_all_projects()
+    
     # 提取系统配置以供后台展示
     api_key = os.getenv("LLM_API_KEY", "")
     masked_api_key = f"{api_key[:6]}******{api_key[-4:]}" if len(api_key) > 10 else "未配置"
@@ -307,42 +300,8 @@ async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str
         raise HTTPException(status_code=500, detail="更新状态失败")
 
 def sync_org_to_db():
-    """将 org_chart.yaml 同步到 users 数据库，确保项目成员变更生效"""
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    projects = org_data.get('projects', [])
-    user_projects = {}
-    user_nicknames = {}
-    
-    for proj in projects:
-        proj_name = proj.get("name")
-        for member in proj.get("members", []):
-            nickname = member.get("nickname")
-            role = member.get("role", "Member")
-            m_emp_id = member.get("emp_id")
-            
-            if not m_emp_id:
-                continue # 没有工号的略过
-                
-            if nickname:
-                user_nicknames[m_emp_id] = nickname
-            
-            if m_emp_id not in user_projects:
-                user_projects[m_emp_id] = []
-            user_projects[m_emp_id].append({"project": proj_name, "role": role})
-            
-    # [修改原因]: 清空所有人的项目数据再重新赋值，避免被移除出项目的人仍然带有旧数据
-    db_manager.clear_all_user_projects()
-            
-    for e_id, projs in user_projects.items():
-        nick = user_nicknames.get(e_id, "")
-        db_manager.ensure_user_exists(
-            emp_id=e_id, 
-            nickname=nick, 
-            projects_json=json.dumps(projs, ensure_ascii=False)
-        )
+    """将 projects 表同步到 users 数据库，确保项目成员变更生效"""
+    db_manager.sync_projects_to_users_json()
 
 class ProjectCreateRequest(BaseModel):
     name: str
@@ -350,31 +309,16 @@ class ProjectCreateRequest(BaseModel):
 
 @app.post("/admin/projects")
 async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 增加新项目到 org_chart.yaml"""
+    """[新增原因]: 增加新项目到数据库"""
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
     if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    if 'projects' not in org_data:
-        org_data['projects'] = []
-        
-    if any(p.get('name') == req.name for p in org_data['projects']):
+    success = db_manager.add_project(req.name, req.description)
+    if not success:
         raise HTTPException(status_code=400, detail="项目已存在")
-        
-    org_data['projects'].append({
-        "name": req.name,
-        "description": req.description,
-        "members": []
-    })
-    
-    with open(org_file, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
         
     return {"status": "success"}
 
@@ -394,43 +338,14 @@ async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id
     if not req.emp_ids:
         raise HTTPException(status_code=400, detail="至少需要选择一个成员")
 
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    project = next((p for p in org_data.get('projects', []) if p.get('name') == project_name), None)
-    if not project:
-        raise HTTPException(status_code=404, detail="项目未找到")
-        
-    if 'members' not in project:
-        project['members'] = []
-        
-    all_users = db_manager.get_all_users()
     added_count = 0
-    
     for e_id in req.emp_ids:
-        # 跳过已经在项目中的人
-        if any(m.get('emp_id') == e_id for m in project['members']):
-            continue
+        if db_manager.add_project_member(project_name, e_id, req.role):
+            added_count += 1
             
-        # 从数据库中找出对应人的昵称
-        target_user = next((u for u in all_users if u['emp_id'] == e_id), None)
-        if not target_user:
-            continue
-            
-        project['members'].append({
-            "nickname": target_user.get("nickname") or e_id,
-            "emp_id": e_id,
-            "role": req.role
-        })
-        added_count += 1
-        
     if added_count == 0:
         raise HTTPException(status_code=400, detail="所选成员已在项目中或不存在")
     
-    with open(org_file, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
-        
     sync_org_to_db()
     return {"status": "success", "added": added_count}
 
@@ -439,27 +354,17 @@ class ProjectDescRequest(BaseModel):
 
 @app.post("/admin/projects/{project_name}/description")
 async def update_project_description(project_name: str, req: ProjectDescRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 允许管理员双击修改项目说明并保存到 yaml"""
+    """[新增原因]: 允许管理员双击修改项目说明并保存到数据库"""
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
     if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    project = next((p for p in org_data.get('projects', []) if p.get('name') == project_name), None)
-    if not project:
+    success = db_manager.update_project_description(project_name, req.description)
+    if not success:
         raise HTTPException(status_code=404, detail="项目未找到")
         
-    project['description'] = req.description
-    
-    with open(org_file, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
-        
-    # 说明只是描述变更，不需要同步至 db，但为了严谨这里保持一致
     sync_org_to_db()
     return {"status": "success"}
 
@@ -472,25 +377,9 @@ async def remove_project_member(project_name: str, target_emp_id: str, emp_id: s
     if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    project = next((p for p in org_data.get('projects', []) if p.get('name') == project_name), None)
-    if not project:
-        raise HTTPException(status_code=404, detail="项目未找到")
-        
-    if 'members' not in project:
-        project['members'] = []
-        
-    original_len = len(project['members'])
-    project['members'] = [m for m in project['members'] if m.get('emp_id') != target_emp_id]
-    
-    if len(project['members']) == original_len:
+    success = db_manager.remove_project_member(project_name, target_emp_id)
+    if not success:
         raise HTTPException(status_code=404, detail="该员工不在项目中")
-        
-    with open(org_file, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
         
     sync_org_to_db()
     return {"status": "success"}
@@ -507,25 +396,9 @@ async def update_project_member_role(project_name: str, target_emp_id: str, req:
     if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    project = next((p for p in org_data.get('projects', []) if p.get('name') == project_name), None)
-    if not project:
-        raise HTTPException(status_code=404, detail="项目未找到")
-        
-    if 'members' not in project:
-        raise HTTPException(status_code=404, detail="该项目暂无成员")
-        
-    member = next((m for m in project['members'] if m.get('emp_id') == target_emp_id), None)
-    if not member:
-        raise HTTPException(status_code=404, detail="该员工不在项目中")
-        
-    member['role'] = req.role
-    
-    with open(org_file, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
+    success = db_manager.update_project_member_role(project_name, target_emp_id, req.role)
+    if not success:
+        raise HTTPException(status_code=404, detail="更新失败或员工不在项目中")
         
     sync_org_to_db()
     return {"status": "success"}
@@ -649,12 +522,8 @@ async def get_projects(authorization: str = Header(None), private_key: str = Coo
     if user_info and user_info.get("status") == "disabled":
         raise HTTPException(status_code=403, detail="您的账号已被禁用")
         
-    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
     try:
-        with open(org_file, 'r', encoding='utf-8') as f:
-            org_data = yaml.safe_load(f)
-            
-        all_projects = org_data.get('projects', [])
+        all_projects = db_manager.get_all_projects()
         # 仅返回该员工所在的项目
         user_projects = []
         for p in all_projects:

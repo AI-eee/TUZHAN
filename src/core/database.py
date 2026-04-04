@@ -5,6 +5,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+from typing import Optional, List, Dict, Any
+
 class DatabaseManager:
     """
     轻量级 SQLite 数据库管理器
@@ -119,8 +121,118 @@ class DatabaseManager:
                 )
             ''')
             
+            # [新增原因]：重构代码，彻底废弃运行时写入 yaml 的做法，将项目和成员关系完全迁移到 SQLite 数据库中。
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS projects (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    created_at TEXT NOT NULL
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS project_members (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_name TEXT NOT NULL,
+                    emp_id TEXT NOT NULL,
+                    role TEXT DEFAULT 'Member',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(project_name, emp_id),
+                    FOREIGN KEY (project_name) REFERENCES projects(name) ON DELETE CASCADE,
+                    FOREIGN KEY (emp_id) REFERENCES users(emp_id) ON DELETE CASCADE
+                )
+            ''')
+            
             conn.commit()
             logger.info(f"数据库表结构初始化成功: {self.db_path}")
+
+    # -------- [新增部分]：项目和成员管理的数据库方法 --------
+    def get_all_projects(self) -> list:
+        """获取所有项目及其成员信息"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name, description FROM projects")
+            projects = [dict(row) for row in cursor.fetchall()]
+            
+            for proj in projects:
+                cursor.execute('''
+                    SELECT pm.emp_id, pm.role, u.nickname 
+                    FROM project_members pm
+                    JOIN users u ON pm.emp_id = u.emp_id
+                    WHERE pm.project_name = ?
+                ''', (proj["name"],))
+                proj["members"] = [dict(row) for row in cursor.fetchall()]
+                
+            return projects
+
+    def add_project(self, name: str, description: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("INSERT INTO projects (name, description, created_at) VALUES (?, ?, ?)", 
+                               (name, description, created_at))
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False
+
+    def update_project_description(self, name: str, description: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE projects SET description = ? WHERE name = ?", (description, name))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_project(self, name: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM projects WHERE name = ?", (name,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def add_project_member(self, project_name: str, emp_id: str, role: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute("INSERT INTO project_members (project_name, emp_id, role, created_at) VALUES (?, ?, ?, ?)", 
+                               (project_name, emp_id, role, created_at))
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False
+
+    def remove_project_member(self, project_name: str, emp_id: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM project_members WHERE project_name = ? AND emp_id = ?", (project_name, emp_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def update_project_member_role(self, project_name: str, emp_id: str, role: str) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE project_members SET role = ? WHERE project_name = ? AND emp_id = ?", (role, project_name, emp_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def sync_projects_to_users_json(self):
+        """保持向后兼容：将 projects 表的数据同步到 users.projects 字段"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT emp_id FROM users")
+            users = cursor.fetchall()
+            
+            for user in users:
+                emp_id = user["emp_id"]
+                cursor.execute("SELECT project_name as project, role FROM project_members WHERE emp_id = ?", (emp_id,))
+                projs = [dict(row) for row in cursor.fetchall()]
+                import json
+                cursor.execute("UPDATE users SET projects = ? WHERE emp_id = ?", (json.dumps(projs, ensure_ascii=False), emp_id))
+            conn.commit()
+    # -----------------------------------------------------
 
     def get_messages_for_user(self, user: str) -> list:
         """获取某个用户的收件箱列表"""
@@ -168,7 +280,7 @@ class DatabaseManager:
             )
             conn.commit()
             
-    def ensure_user_exists(self, emp_id: str, nickname: str = None, projects_json: str = "[]", private_key: str = None):
+    def ensure_user_exists(self, emp_id: str, nickname: Optional[str] = None, projects_json: str = "[]", private_key: Optional[str] = None):
         """确保用户存在，支持传入包含项目和角色的 JSON 字符串及工号"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -205,7 +317,7 @@ class DatabaseManager:
             cursor.execute("UPDATE users SET projects = '[]'")
             conn.commit()
 
-    def get_user_info(self, emp_id: str) -> dict:
+    def get_user_info(self, emp_id: str) -> Optional[dict]:
         """获取用户的完整信息，包括其参与的项目及角色"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -213,7 +325,7 @@ class DatabaseManager:
             row = cursor.fetchone()
             return dict(row) if row else None
 
-    def get_user_by_key(self, private_key: str, active_only: bool = True) -> str:
+    def get_user_by_key(self, private_key: str, active_only: bool = True) -> Optional[str]:
         """[新增原因]：通过 private_key 获取对应的员工 emp_id，用于拦截伪造身份及被禁用的账号"""
         if not private_key:
             return None
