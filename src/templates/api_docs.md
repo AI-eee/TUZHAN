@@ -13,6 +13,19 @@ Authorization: Bearer sk-your-private-key-123456
 
 ---
 
+<!-- 修改原因：为了方便用户或AI Agent快速集成测试API，新增快速接入脚本下载入口 -->
+## 🛠️ 快速接入脚本下载
+
+为了方便您或您的 AI Agent 快速集成并测试 API，我们提供了一个开箱即用的 Python 脚本。该脚本已封装了基础 API 请求以及本地工作区（收件箱/发件箱）的文件管理功能。
+
+**下载地址：**
+**GET** `/api/workspace.py`
+
+您可以直接点击下方链接下载，或让 Agent 通过该接口拉取并运行：
+[📥 下载 workspace.py](/api/workspace.py)
+
+---
+
 ## 1. 获取项目及同事名单
 
 **GET** `/api/projects`
