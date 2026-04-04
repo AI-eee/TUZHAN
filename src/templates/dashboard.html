@@ -7,7 +7,7 @@
     <!-- [新增原因]: 引入 Highlight.js 实现代码块高亮 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-light.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <!-- [新增原因]: 引入 EasyMDE 实现 Markdown 编辑器体验 -->
+    <!-- [修改原因]: 引入 EasyMDE (去除了工具栏作为纯 CodeMirror) 实现 Markdown 语法高亮体验 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
     <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
 
@@ -280,25 +280,105 @@
         border-radius: 6px;
         padding: 1em;
     }
-    .editor-toolbar a.active, .editor-toolbar a:hover {
-        color: var(--tz-primary) !important;
-        border-color: var(--tz-primary) !important;
-        background: var(--tz-primary-light) !important;
-    }
     .CodeMirror {
         border-color: var(--tz-border) !important;
-        border-radius: 0 0 var(--tz-radius-md) var(--tz-radius-md) !important;
+        border-radius: var(--tz-radius-md) !important;
         font-family: inherit !important;
         font-size: 14px !important;
-    }
-    .editor-toolbar {
-        border-color: var(--tz-border) !important;
-        border-radius: var(--tz-radius-md) var(--tz-radius-md) 0 0 !important;
-        opacity: 0.9;
     }
     .CodeMirror-focused {
         border-color: var(--tz-primary) !important;
         box-shadow: 0 0 0 3px var(--tz-primary-light) !important;
+    }
+    /* [修改原因]: 彻底去除 Markdown 编辑器内部因语法产生的字体大小、加粗、斜体等结构性变化，仅保留颜色高亮，呈现纯文本质感 */
+    .CodeMirror .CodeMirror-code span {
+        font-size: 14px !important;
+        font-weight: normal !important;
+        font-style: normal !important;
+        text-decoration: none !important;
+    }
+    
+    /* [修改原因]: 因为去除了字号和加粗，补充明确的颜色高亮样式，让各种 Markdown 语法呈现出纯文本状态下的多彩高亮 */
+    .CodeMirror .cm-header { color: #0056b3 !important; }          /* 标题 */
+    .CodeMirror .cm-quote { color: #28a745 !important; }           /* 引用 */
+    .CodeMirror .cm-strong { color: #d73a49 !important; }          /* 加粗 */
+    .CodeMirror .cm-em { color: #6f42c1 !important; }              /* 斜体 */
+    .CodeMirror .cm-link { color: #0366d6 !important; }            /* 链接 */
+    .CodeMirror .cm-url { color: #6a737d !important; }             /* 网址 */
+    .CodeMirror .cm-string { color: #e36209 !important; }          /* 代码 */
+    .CodeMirror .cm-variable-2 { color: #005cc5 !important; }      /* 列表项 */
+    .CodeMirror .cm-variable-3 { color: #005cc5 !important; }      /* 嵌套列表项 */
+    .CodeMirror .cm-comment { color: #6a737d !important; }         /* HTML注释 */
+    .CodeMirror .cm-hr { color: #0056b3 !important; }              /* 分隔线 */
+    .CodeMirror .cm-formatting { color: #d73a49 !important; }      /* Markdown 标记符本身 */
+
+    /* [新增原因]: AI 转换过程的科幻动态效果 - 按钮部分 (使用伪元素实现光束扫过的流光效果) */
+    @keyframes ai-button-sweep {
+        0% { transform: translateX(-100%) skewX(-15deg); }
+        100% { transform: translateX(200%) skewX(-15deg); }
+    }
+    .btn-ai-thinking {
+        position: relative !important;
+        overflow: hidden !important;
+        background: var(--tz-primary) !important;
+        border: none !important;
+        color: #fff !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+        cursor: wait !important;
+        box-shadow: none !important; /* 彻底去除难看的外阴影 */
+    }
+    .btn-ai-thinking::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+        animation: ai-button-sweep 1.5s infinite;
+        pointer-events: none;
+    }
+
+    /* [新增原因]: AI 转换过程的科幻动态效果 - 输入框整体与扫描线 (网站主色调) */
+    @keyframes ai-editor-border {
+        0% { border-color: var(--tz-primary-border); box-shadow: inset 0 0 10px var(--tz-primary-light); }
+        50% { border-color: var(--tz-primary); box-shadow: inset 0 0 20px var(--tz-primary-glow); }
+        100% { border-color: var(--tz-primary-border); box-shadow: inset 0 0 10px var(--tz-primary-light); }
+    }
+    @keyframes ai-scanline {
+        0% { top: 0%; opacity: 0; }
+        10% { opacity: 0.8; }
+        90% { opacity: 0.8; }
+        100% { top: 100%; opacity: 0; }
+    }
+    .editor-ai-thinking {
+        animation: ai-editor-border 2.5s infinite ease-in-out !important;
+        position: relative;
+        pointer-events: none;
+        overflow: hidden;
+    }
+    .editor-ai-thinking::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--tz-primary), transparent);
+        z-index: 99;
+        animation: ai-scanline 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+    }
+
+    /* [新增原因]: AI 转换过程的科幻动态效果 - 文字颜色呼吸闪烁 (网站主色调) */
+    @keyframes ai-text-breathe {
+        0% { color: var(--tz-primary); opacity: 0.7; }
+        50% { color: #ff9e5e; opacity: 1; text-shadow: 0 0 5px var(--tz-primary-glow); }
+        100% { color: var(--tz-primary); opacity: 0.7; }
+    }
+    .editor-ai-thinking .CodeMirror-code span {
+        animation: ai-text-breathe 2s infinite ease-in-out !important;
     }
 
 </style>
@@ -597,15 +677,9 @@
                 element: contentArea,
                 spellChecker: false,
                 status: false,
+                toolbar: false, // [修改原因]: 移除富文本编辑器工具栏，仅保留 Markdown 语法高亮功能
                 placeholder: "输入你想表达的内容，我们将通过 AI 为你格式化...",
-                renderingConfig: { codeSyntaxHighlighting: true },
-                toolbar: [
-                    "bold", "italic", "heading", "|",
-                    "quote", "code", "unordered-list", "ordered-list", "|",
-                    "link", "image", "|",
-                    "preview", "side-by-side", "fullscreen", "|", "guide"
-                ],
-                autoDownloadFontAwesome: true
+                renderingConfig: { codeSyntaxHighlighting: true }
             });
             easymde.codemirror.on("change", () => {
                 contentArea.value = easymde.value();
@@ -761,8 +835,14 @@
         if (state === 0) {
             actionBtn.disabled = true;
             actionBtn.innerText = "AI 正在思考和转换中...";
-            actionBtn.style.background = "var(--tz-gray-400)";
-            actionBtn.style.boxShadow = "none";
+            // [修改原因]: 移除之前写死的无聊灰色，替换为科幻动画类
+            actionBtn.style.background = "";
+            actionBtn.style.boxShadow = "";
+            actionBtn.classList.add("btn-ai-thinking");
+            
+            // 为输入框(CodeMirror)添加科幻扫描和闪烁效果
+            const editorEl = document.querySelector('.CodeMirror');
+            if (editorEl) editorEl.classList.add('editor-ai-thinking');
 
             try {
                 const res = await fetch('/api/llm/convert', {
@@ -780,6 +860,10 @@
                     contentArea.value = finalMd.trim();
                     if (easymde) { easymde.value(finalMd.trim()); }
                     state = 1;
+                    actionBtn.classList.remove("btn-ai-thinking");
+                    const editorEl = document.querySelector('.CodeMirror');
+                    if (editorEl) editorEl.classList.remove('editor-ai-thinking');
+
                     actionBtn.innerHTML = '确认发送 <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span>';
                     actionBtn.style.background = "linear-gradient(135deg, var(--tz-success), #2dd36f)";
                     actionBtn.style.boxShadow = "0 2px 8px rgba(34,197,94,0.3)";
@@ -803,6 +887,10 @@
         actionBtn.innerHTML = 'AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span>';
         actionBtn.style.background = "";
         actionBtn.style.boxShadow = "";
+        actionBtn.classList.remove("btn-ai-thinking");
+        
+        const editorEl = document.querySelector('.CodeMirror');
+        if (editorEl) editorEl.classList.remove('editor-ai-thinking');
     }
 
     contentArea.addEventListener('input', () => {
