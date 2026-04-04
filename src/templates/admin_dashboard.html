@@ -827,7 +827,12 @@
                 const data = await response.json();
                 if (response.ok && data.status === 'success') {
                     spanElement.innerText = newRole;
-                    spanElement.setAttribute('ondblclick', `editMemberRole(this, '${projectName}', '${empId}', '${newRole}')`);
+                    spanElement.onclick = null;
+                    spanElement.removeAttribute('ondblclick');
+                    spanElement.addEventListener('dblclick', function handler() {
+                        spanElement.removeEventListener('dblclick', handler);
+                        editMemberRole(spanElement, projectName, empId, newRole);
+                    });
                     TZUI.toast('角色已更新！', 'success');
                 } else {
                     TZUI.toast('更新失败: ' + (data.detail || '未知错误'), 'error');
