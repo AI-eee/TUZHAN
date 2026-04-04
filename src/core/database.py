@@ -94,6 +94,12 @@ class DatabaseManager:
             if 'receiver_deleted' not in msg_columns:
                 cursor.execute("ALTER TABLE messages ADD COLUMN receiver_deleted INTEGER DEFAULT 0")
                 
+            # [新增原因]：热更新 projects 表的软删除字段
+            cursor.execute("PRAGMA table_info(projects)")
+            proj_columns = [info[1] for info in cursor.fetchall()]
+            if 'is_deleted' not in proj_columns:
+                cursor.execute("ALTER TABLE projects ADD COLUMN is_deleted INTEGER DEFAULT 0")
+
             conn.commit()
 
     def init_tables(self):
@@ -137,6 +143,7 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
                     description TEXT,
+                    is_deleted INTEGER DEFAULT 0,
                     created_at TEXT NOT NULL
                 )
             ''')
@@ -162,7 +169,7 @@ class DatabaseManager:
         """获取所有项目及其成员信息"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name, description FROM projects")
+            cursor.execute("SELECT name, description FROM projects WHERE is_deleted = 0")
             projects = [dict(row) for row in cursor.fetchall()]
             
             for proj in projects:
@@ -180,8 +187,21 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
+                # 检查是否存在已软删除的同名项目
+                cursor.execute("SELECT is_deleted FROM projects WHERE name = ?", (name,))
+                row = cursor.fetchone()
+                if row is not None:
+                    if row[0] == 1:
+                        # 恢复被软删除的项目
+                        cursor.execute("UPDATE projects SET is_deleted = 0, description = ? WHERE name = ?", (description, name))
+                        conn.commit()
+                        return True
+                    else:
+                        # 已存在的活跃项目
+                        return False
+
                 created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute("INSERT INTO projects (name, description, created_at) VALUES (?, ?, ?)", 
+                cursor.execute("INSERT INTO projects (name, description, is_deleted, created_at) VALUES (?, ?, 0, ?)", 
                                (name, description, created_at))
                 conn.commit()
                 return True
@@ -196,11 +216,24 @@ class DatabaseManager:
             return cursor.rowcount > 0
 
     def delete_project(self, name: str) -> bool:
+        """[修改原因]：软删除项目"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM projects WHERE name = ?", (name,))
+            cursor.execute("UPDATE projects SET is_deleted = 1 WHERE name = ?", (name,))
             conn.commit()
             return cursor.rowcount > 0
+
+    def get_project_member_count(self, project_name: str) -> int:
+        """[新增原因]：获取项目成员数量（过滤掉在用户表中已被删除的幽灵成员）"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) 
+                FROM project_members pm
+                JOIN users u ON pm.emp_id = u.emp_id
+                WHERE pm.project_name = ?
+            ''', (project_name,))
+            return cursor.fetchone()[0]
 
     def add_project_member(self, project_name: str, emp_id: str, role: str) -> bool:
         with self.get_connection() as conn:

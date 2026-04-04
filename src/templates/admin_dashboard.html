@@ -374,7 +374,10 @@
                                 {{ proj.description if proj.description else '暂无说明，双击添加' }}
                             </span>
                         </h3>
-                        <button class="action-btn-sm" onclick="openMemberModal('{{ proj.name }}')">+ 添加成员</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="action-btn-sm" onclick="openMemberModal('{{ proj.name }}')">+ 添加成员</button>
+                            <button class="action-btn-sm" onclick="deleteProject('{{ proj.name }}')" style="background: #ef4444;">删除项目</button>
+                        </div>
                     </div>
 
                     {% if proj.members|length == 0 %}
@@ -852,6 +855,22 @@
                     setTimeout(() => window.location.reload(), 1000);
                 } else {
                     TZUI.toast('移除失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) { TZUI.toast('网络或服务器错误，请稍后重试。', 'error'); }
+        });
+    }
+
+    function deleteProject(projectName) {
+        // [新增原因]: 支持前端触发项目软删除操作
+        TZUI.confirm(`确定要删除项目 [${projectName}] 吗？删除的前提是必须移除所有项目成员。`, async () => {
+            try {
+                const response = await fetch(`/admin/projects/${encodeURIComponent(projectName)}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (response.ok && data.status === 'success') {
+                    TZUI.toast('删除项目成功！', 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    TZUI.toast('删除失败: ' + (data.detail || '未知错误'), 'error');
                 }
             } catch (error) { TZUI.toast('网络或服务器错误，请稍后重试。', 'error'); }
         });

@@ -388,6 +388,22 @@ async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None), pri
         
     return {"status": "success"}
 
+@app.delete("/admin/projects/{project_name}")
+async def delete_project(project_name: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 软删除项目，删除的前提是移除了所有项目成员"""
+    _require_admin(emp_id, private_key)
+    
+    member_count = db_manager.get_project_member_count(project_name)
+    if member_count > 0:
+        raise HTTPException(status_code=400, detail="删除失败：项目中仍有成员，请先移除所有成员。")
+        
+    success = db_manager.delete_project(project_name)
+    if not success:
+        raise HTTPException(status_code=404, detail="项目未找到")
+        
+    sync_org_to_db()
+    return {"status": "success"}
+
 class MemberCreateRequest(BaseModel):
     emp_ids: list[str]
     role: str

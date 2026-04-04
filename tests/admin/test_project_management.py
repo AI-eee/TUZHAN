@@ -36,6 +36,49 @@ class TestProjectCRUD:
                                   json={"description": "无效更新"})
         assert resp.status_code == 404
 
+    def test_delete_project_with_members_fails(self, base_url, admin_session, noproj_user):
+        """删除有成员的项目应失败，返回 400"""
+        import uuid
+        proj_name = f"ProjectToDelete_{uuid.uuid4().hex[:8]}"
+        # Create a new project
+        resp = admin_session.post(
+            f"{base_url}/admin/projects",
+            json={"name": proj_name, "description": "Desc"}
+        )
+        assert resp.status_code == 200
+        
+        # Add a member
+        resp = admin_session.post(
+            f"{base_url}/admin/projects/{proj_name}/members",
+            json={"emp_ids": [noproj_user["emp_id"]], "role": "Member"}
+        )
+        assert resp.status_code == 200
+        
+        # Try to delete
+        resp = admin_session.delete(f"{base_url}/admin/projects/{proj_name}")
+        assert resp.status_code == 400
+        assert "请先移除所有成员" in resp.json()["detail"]
+
+    def test_delete_project_without_members_success(self, base_url, admin_session, noproj_user):
+        """删除没有成员的项目应成功，并且后续查不到"""
+        import uuid
+        proj_name = f"ProjectToDelete2_{uuid.uuid4().hex[:8]}"
+        # Create a new project
+        resp = admin_session.post(
+            f"{base_url}/admin/projects",
+            json={"name": proj_name, "description": "Desc"}
+        )
+        assert resp.status_code == 200
+        
+        # Delete project
+        resp = admin_session.delete(f"{base_url}/admin/projects/{proj_name}")
+        assert resp.status_code == 200
+        
+        # Try to fetch all projects and verify it's not there
+        # We can just check the dashboard response
+        dashboard_resp = admin_session.get(f"{base_url}/admin/dashboard")
+        assert proj_name not in dashboard_resp.text
+
 
 class TestProjectMembers:
     """项目成员管理"""
