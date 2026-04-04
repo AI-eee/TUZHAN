@@ -521,7 +521,10 @@
                                 <div class="member-item-header">
                                     <strong>{{ m.nickname }}</strong>
                                     <div style="display: flex; align-items: center; gap: 8px;">
-                                        <span class="member-item-role">{{ m.role }}</span>
+                                        <span class="member-item-role"
+                                               style="cursor: pointer;"
+                                               title="双击编辑角色"
+                                               ondblclick="editMemberRole(this, '{{ proj.name }}', '{{ m.emp_id }}', '{{ m.role }}')">{{ m.role }}</span>
                                         <svg onclick="removeProjectMember('{{ proj.name }}', '{{ m.emp_id }}')" class="icon-btn refresh-btn" style="color: #dc3545; cursor: pointer;" title="移除该成员" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -984,6 +987,65 @@
             } catch (error) {
                 console.error('请求出错:', error);
                 TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        });
+    }
+
+    // [新增原因]: 双击编辑项目成员角色
+    function editMemberRole(spanElement, projectName, empId, currentRole) {
+        // 变成输入框
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentRole;
+        input.style.cssText = 'font-size: 13px; color: var(--brand-orange); padding: 2px 6px; border: 1px solid var(--brand-orange); border-radius: 12px; outline: none; width: 100px; background: rgba(255, 107, 1, 0.1);';
+        
+        spanElement.style.display = 'none';
+        spanElement.parentNode.insertBefore(input, spanElement.nextSibling);
+        input.focus();
+
+        let isSaving = false;
+
+        const saveRole = async () => {
+            if (isSaving) return;
+            isSaving = true;
+            
+            const newRole = input.value.trim();
+            // 恢复显示
+            input.remove();
+            spanElement.style.display = 'inline-block';
+            
+            if (newRole === currentRole || !newRole) {
+                return; // 未做修改或为空
+            }
+
+            try {
+                const response = await fetch(`/admin/projects/${encodeURIComponent(projectName)}/members/${encodeURIComponent(empId)}/role`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: newRole })
+                });
+                const data = await response.json();
+                if (response.ok && data.status === 'success') {
+                    spanElement.innerText = newRole;
+                    // 更新 onclick 事件中的 currentRole 参数
+                    spanElement.setAttribute('ondblclick', `editMemberRole(this, '${projectName}', '${empId}', '${newRole}')`);
+                    TZUI.toast('角色已更新！', 'success');
+                } else {
+                    TZUI.toast('更新失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        };
+
+        // 绑定失去焦点和回车事件
+        input.addEventListener('blur', saveRole);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveRole();
+            if (e.key === 'Escape') {
+                input.remove();
+                spanElement.style.display = 'inline-block';
             }
         });
     }

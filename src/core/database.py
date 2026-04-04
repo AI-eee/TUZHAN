@@ -80,8 +80,9 @@ class DatabaseManager:
             # [新增原因]：热更新 is_admin 字段，用于标记管理员角色
             if 'is_admin' not in columns:
                 cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
-                # 如果是旧的数据，给已知的 TZa1b2c3 初始化赋予超管权限以防止丢失访问权
-                cursor.execute("UPDATE users SET is_admin = 1 WHERE emp_id = 'TZa1b2c3'")
+                # 如果是旧的数据，给已知的 TZzhjiac 初始化赋予超管权限以防止丢失访问权
+                # [修改原因]: 根据最新要求，超管工号固定为 TZzhjiac
+                cursor.execute("UPDATE users SET is_admin = 1 WHERE emp_id = 'TZzhjiac'")
                 
             conn.commit()
 

@@ -3,7 +3,7 @@ projects:
   description: TUZHAN 协作中心本身的 Project
   members:
   - nickname: Admin
-    emp_id: TZa1b2c3
+    emp_id: TZzhjiac
     role: Founder & CEO
   - nickname: Bob
     emp_id: TZx7y8z9

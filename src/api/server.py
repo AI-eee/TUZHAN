@@ -151,7 +151,7 @@ async def admin_login(request: Request, private_key: str = Form(...)):
         })
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         return templates.TemplateResponse("admin_login.html", {
             "request": request, 
             "error": "抱歉，您不是系统管理员，无权访问此页面。"
@@ -166,13 +166,13 @@ async def admin_login(request: Request, private_key: str = Form(...)):
 @app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, emp_id: str = Cookie(None), admin_logged_in: str = Cookie(None)):
     """
-    [新增原因]: 管理员后台，仅允许 TZa1b2c3 的用户访问，且必须经过 /admin/login 登录。
+    [新增原因]: 管理员后台，仅允许 TZzhjiac 的用户访问，且必须经过 /admin/login 登录。
     """
     if not emp_id or admin_logged_in != "true":
         return RedirectResponse(url="/admin/login", status_code=303)
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         # 如果不是管理员，强制踢回普通控制台或提示无权限
         return RedirectResponse(url="/admin/login", status_code=303)
         
@@ -228,7 +228,7 @@ async def regenerate_user_key(target_emp_id: str, emp_id: str = Cookie(None)):
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied: You are not the administrator.")
         
     # 查找被修改用户
@@ -257,7 +257,7 @@ async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id:
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     success = db_manager.update_user_identity(target_emp_id, req.identity_md)
@@ -276,7 +276,7 @@ async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str
         raise HTTPException(status_code=401, detail="未授权")
         
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     if req.status not in ["active", "disabled"]:
@@ -336,7 +336,7 @@ async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None)):
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -370,7 +370,7 @@ async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     if not req.emp_ids:
@@ -425,7 +425,7 @@ async def update_project_description(project_name: str, req: ProjectDescRequest,
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -451,7 +451,7 @@ async def remove_project_member(project_name: str, target_emp_id: str, emp_id: s
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -477,6 +477,41 @@ async def remove_project_member(project_name: str, target_emp_id: str, emp_id: s
     sync_org_to_db()
     return {"status": "success"}
 
+class MemberRoleUpdateRequest(BaseModel):
+    role: str
+
+@app.post("/admin/projects/{project_name}/members/{target_emp_id}/role")
+async def update_project_member_role(project_name: str, target_emp_id: str, req: MemberRoleUpdateRequest, emp_id: str = Cookie(None)):
+    """[新增原因]: 允许管理员编辑项目成员的角色"""
+    if not emp_id:
+        raise HTTPException(status_code=401, detail="未授权")
+    user_info = db_manager.get_user_info(emp_id)
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+        raise HTTPException(status_code=403, detail="Access Denied")
+        
+    org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
+    with open(org_file, 'r', encoding='utf-8') as f:
+        org_data = yaml.safe_load(f)
+        
+    project = next((p for p in org_data.get('projects', []) if p.get('name') == project_name), None)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目未找到")
+        
+    if 'members' not in project:
+        raise HTTPException(status_code=404, detail="该项目暂无成员")
+        
+    member = next((m for m in project['members'] if m.get('emp_id') == target_emp_id), None)
+    if not member:
+        raise HTTPException(status_code=404, detail="该员工不在项目中")
+        
+    member['role'] = req.role
+    
+    with open(org_file, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(org_data, f, allow_unicode=True, sort_keys=False)
+        
+    sync_org_to_db()
+    return {"status": "success"}
+
 class LLMKeyRequest(BaseModel):
     llm_api_key: str
 
@@ -486,7 +521,7 @@ async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), admin_l
     if not emp_id or admin_logged_in != "true":
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZa1b2c3":
+    if not user_info or user_info.get("emp_id") != "TZzhjiac":
         raise HTTPException(status_code=403, detail="Access Denied")
         
     env_file = os.path.join(current_dir, '..', '..', '.env')
