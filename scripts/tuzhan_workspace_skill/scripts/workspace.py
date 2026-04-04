@@ -98,6 +98,7 @@ def sync_inbox_outbox():
         count = 0
         for msg in received.get("data", []):
             sender_id = msg.get("metadata", {}).get("sender", "unknown")
+            msg_id = msg.get("metadata", {}).get("id")
             emp_inbox_dir = os.path.join(inbox_dir, sender_id)
             os.makedirs(emp_inbox_dir, exist_ok=True)
             
@@ -105,6 +106,15 @@ def sync_inbox_outbox():
             if not os.path.exists(filepath):
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(msg["content"])
+                
+                # [修改原因]: Agent拉取消息并保存本地后，必须调用ACK接口将消息标记为已读，防止重复处理和未读堆积
+                if msg_id:
+                    ack_resp = request(f"/messages/{msg_id}/read", method="POST")
+                    if ack_resp and ack_resp.get("status") == "success":
+                        print(f"消息 {msg_id} 已成功保存并标记为已读。")
+                    else:
+                        print(f"消息 {msg_id} 已保存，但标记已读失败。")
+                        
                 count += 1
         print(f"已将 {count} 条新的收件箱消息保存到 {inbox_dir}")
     else:
