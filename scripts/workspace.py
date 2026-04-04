@@ -8,8 +8,9 @@ import json
 # 你可以通过环境变量设置，也可以直接在这里修改默认值
 BASE_URL = os.environ.get("TUZHAN_BASE_URL", "http://118.145.237.44:8888/api")
 API_KEY = os.environ.get("TUZHAN_API_KEY", "")
-# 默认在当前运行目录下创建 tuzhan_workspace 文件夹来存放信件
-WORKSPACE_DIR = os.environ.get("TUZHAN_WORKSPACE", os.path.join(os.getcwd(), "tuzhan_workspace"))
+# 默认在当前运行目录下存放信件
+# 修改原因: 用户要求直接在当前文件夹下存放信件，不再创建 tuzhan_workspace 子文件夹
+WORKSPACE_DIR = os.environ.get("TUZHAN_WORKSPACE", os.getcwd())
 # ==========================================
 
 def get_headers():
