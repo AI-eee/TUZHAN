@@ -585,20 +585,45 @@
 {% block page_scripts %}
 <script>
 
-    // [新增原因]: 复制 Markdown 内容
+    // [修改原因]: 复制 Markdown 内容时增加 navigator.clipboard 与 isSecureContext 的校验，并在不支持时降级使用 document.execCommand('copy') 避免报错
     function copyMarkdown(btn) {
         const contentDiv = btn.closest('.message-content');
         const rawMd = contentDiv.querySelector('.raw-markdown-content').value;
-        navigator.clipboard.writeText(rawMd).then(() => {
+        
+        const successCallback = () => {
             TZUI.toast('Markdown 已复制到剪贴板', 'success');
             const svg = btn.querySelector('svg');
             const originalHTML = svg.innerHTML;
             svg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
             setTimeout(() => { svg.innerHTML = originalHTML; }, 2000);
-        }).catch(err => {
+        };
+        
+        const errorCallback = (err) => {
             console.error('复制失败:', err);
             TZUI.toast('复制失败，请手动选择复制', 'error');
-        });
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(rawMd).then(successCallback).catch(errorCallback);
+        } else {
+            const ta = document.createElement("textarea");
+            ta.value = rawMd;
+            ta.style.position = "fixed";
+            ta.style.left = "-999999px";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                if (document.execCommand('copy')) {
+                    successCallback();
+                } else {
+                    errorCallback(new Error('execCommand returned false'));
+                }
+            } catch (e) {
+                errorCallback(e);
+            }
+            document.body.removeChild(ta);
+        }
     }
 
     // [新增原因]: 提交个人资料表单
