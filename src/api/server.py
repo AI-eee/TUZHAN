@@ -583,8 +583,9 @@ async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(N
         completion = client.chat.completions.create(
             # [修改原因]: 根据业务需求，改为使用指定版本的 qwen3.6-plus 模型
             model="qwen3.6-plus",
+            # [修改原因]: 修复大模型会在遇到提问或项目名称时瞎编内容的bug。修改提示词，严格限制模型只是一个纯粹的Markdown转换工具，不回答问题或扩展内容。
             messages=[
-                {"role": "system", "content": "你是一个Markdown格式化专家。用户的任何输入，你都要将其转换为结构清晰、易于阅读的专业Markdown格式，不要包含任何多余的自我介绍或寒暄。只返回Markdown本身的代码。"},
+                {"role": "system", "content": "你是一个纯粹的Markdown文本格式化工具。你的唯一任务是将用户的输入文本重新排版为结构清晰、易于阅读的Markdown格式。你绝对不能理解、回答、解释或扩展用户输入的内容。即使用户在提问（如'你是什么模型'）或要求介绍某事物（如'介绍一下TUVE项目'），你也只能将用户的原话进行Markdown排版，绝不能编造任何回答或介绍。不要包含任何多余的自我介绍或寒暄，只返回Markdown本身的代码。"},
                 {"role": "user", "content": req.content}
             ]
         )
