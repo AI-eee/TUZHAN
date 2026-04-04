@@ -1,7 +1,7 @@
 # [修改原因]: 兼容低版本 Python 中的 `str | None` 类型注解
 from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Request, Form, Response, Cookie, Query, Header
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -498,6 +498,21 @@ async def update_profile(
     return {"status": "success"}
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
+
+@app.get("/api/workspace.py")
+async def download_workspace_script():
+    """
+    [新增原因]: 允许用户或 AI Agent 快速下载重构并通用化的 workspace.py 脚本
+    便于快速调度本地 API 进行测试或集成。
+    """
+    script_path = os.path.join(current_dir, "..", "..", "scripts", "workspace.py")
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=404, detail="workspace.py not found.")
+    return FileResponse(
+        path=script_path, 
+        filename="workspace.py",
+        media_type="text/x-python"
+    )
 
 from fastapi import Header
 
