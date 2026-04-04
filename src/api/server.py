@@ -333,9 +333,43 @@ def sync_org_to_db():
     """将 projects 表同步到 users 数据库，确保项目成员变更生效"""
     db_manager.sync_projects_to_users_json()
 
+class UserCreateRequest(BaseModel):
+    nickname: str
+
 class ProjectCreateRequest(BaseModel):
     name: str
     description: str
+
+@app.post("/admin/users")
+async def add_user(req: UserCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 支持管理员在控制台新增员工成员"""
+    _require_admin(emp_id, private_key)
+    
+    import random
+    import string
+    import secrets
+    
+    while True:
+        random_chars = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        new_emp_id = f"TZ{random_chars}"
+        if not db_manager.get_user_info(new_emp_id):
+            break
+            
+    new_key = f"sk-{secrets.token_hex(16)}"
+    
+    db_manager.ensure_user_exists(
+        emp_id=new_emp_id, 
+        nickname=req.nickname, 
+        projects_json="[]", 
+        private_key=new_key
+    )
+    
+    return {
+        "status": "success", 
+        "emp_id": new_emp_id, 
+        "nickname": req.nickname, 
+        "private_key": new_key
+    }
 
 @app.post("/admin/projects")
 async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):

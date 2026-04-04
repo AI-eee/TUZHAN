@@ -7,6 +7,24 @@ import pytest
 import requests
 
 
+class TestAddUser:
+    """POST /admin/users"""
+    
+    def test_add_user_success(self, base_url, admin_session, db_manager):
+        """管理员应能新增员工"""
+        resp = admin_session.post(f"{base_url}/admin/users", json={"nickname": "TestNewUser"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["emp_id"].startswith("TZ")
+        assert data["nickname"] == "TestNewUser"
+        assert data["private_key"].startswith("sk-")
+        
+        # Verify in DB
+        user_info = db_manager.get_user_info(data["emp_id"])
+        assert user_info is not None
+        assert user_info["nickname"] == "TestNewUser"
+
 class TestRegenerateKey:
     """POST /admin/users/{emp_id}/regenerate-key"""
 

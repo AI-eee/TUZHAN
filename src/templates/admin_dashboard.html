@@ -283,7 +283,11 @@
 
         <!-- Tab 1: Users -->
         <div id="tab-users" class="tz-tab-content active">
-            <h2 class="tz-card" style="background: none; border: none; box-shadow: none; padding: 0; margin-bottom: 16px;">组织架构审查 (Users)</h2>
+            <!-- [修改原因]: 增加包含“新增成员”按钮的头部区域，用于新建员工 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 class="tz-card" style="background: none; border: none; box-shadow: none; padding: 0; margin: 0;">组织架构审查 (Users)</h2>
+                <button class="tz-btn-primary" onclick="openAddUserModal()" style="padding: 8px 16px; font-size: 13px;">+ 新增成员</button>
+            </div>
             {% if all_users|length == 0 %}
                 <div class="tz-empty-state">暂无人员数据</div>
             {% else %}
@@ -506,6 +510,24 @@
     </div>
 </div>
 
+<!-- Add User Modal -->
+<div id="add-user-modal" class="modal-overlay" onclick="closeAddUserModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="add-user-modal-title">新增成员</h3>
+            <button class="modal-close" onclick="closeAddUserModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="margin-top: 0; color: var(--tz-text-muted); font-size: 13px;">输入员工姓名/昵称，系统将自动生成唯一的工号和 Private Key。</p>
+            <input type="text" id="add-user-nickname" class="modal-input" placeholder="员工姓名/昵称 (如: 张三)">
+        </div>
+        <div class="modal-footer">
+            <button class="tz-btn-ghost" onclick="closeAddUserModal()">取消</button>
+            <button class="tz-btn-primary" style="padding: 8px 20px;" onclick="saveNewUser()">确认新增</button>
+        </div>
+    </div>
+</div>
+
 <!-- Project Modal -->
 <div id="project-modal" class="modal-overlay" onclick="closeProjectModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()" style="width: 500px;">
@@ -690,6 +712,42 @@
                 TZUI.toast('保存失败: ' + (data.detail || '未知错误'), 'error');
             }
         } catch (error) { TZUI.toast('网络或服务器错误，请稍后重试。', 'error'); }
+    }
+
+    // Add User modal
+    function openAddUserModal() {
+        document.getElementById('add-user-nickname').value = '';
+        document.getElementById('add-user-modal').style.display = 'flex';
+    }
+
+    function closeAddUserModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('add-user-modal').style.display = 'none';
+    }
+
+    async function saveNewUser() {
+        const nickname = document.getElementById('add-user-nickname').value.trim();
+        if (!nickname) {
+            TZUI.toast('请输入员工姓名/昵称！', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                TZUI.toast('新增成员成功！工号: ' + data.emp_id, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                TZUI.toast('新增失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
     }
 
     // Project modal
