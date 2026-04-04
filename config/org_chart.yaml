@@ -1,0 +1,28 @@
+projects:
+- name: TUZHAN
+  description: TUZHAN 协作中心本身的 Project
+  members:
+  - nickname: Admin
+    emp_id: TZa1b2c3
+    role: Founder & CEO
+  - nickname: Bob
+    emp_id: TZx7y8z9
+    role: Fullstack Engineer
+- name: TUVE
+  description: TUVE 短视频创作AI Agent
+  members:
+  - nickname: Charlie
+    emp_id: TZm1n2p3
+    role: Product Manager
+  - nickname: Diana
+    emp_id: TZq4r5s6
+    role: Algorithm Engineer
+- name: SEE2AI
+  description: SEE2AI AI Agent API 平台 "Beyond Chat. Agents That Act."
+  members:
+  - nickname: Eve
+    emp_id: TZt7u8v9
+    role: Prompt Engineer
+  - nickname: Alice
+    emp_id: TZe4f5g6
+    role: Consultant

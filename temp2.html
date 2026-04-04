@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>控制台 - TUZHAN 协作中心</title>
+    <!-- 统一引入 favicon 和 UI 组件 -->
+    <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/ui.css">
+    <script src="/static/js/ui.js"></script>
+    <style>
+        :root {
+            --brand-orange: #FF6B01;
+            --brand-orange-hover: #e56000;
+            --brand-dark: #4B4B4B;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --border-color: #eaeaea;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .header {
+            background: var(--brand-dark);
+            color: #fff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-left img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 15px;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: var(--brand-orange);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: grid;
+            gap: 30px;
+            grid-template-columns: 1fr;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--brand-dark);
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background-color: var(--brand-orange);
+            border-radius: 2px;
+        }
+        
+        .role-badge {
+            background-color: rgba(255, 107, 1, 0.1);
+            color: var(--brand-orange);
+            border: 1px solid rgba(255, 107, 1, 0.3);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-left: 8px;
+        }
+        
+        .projects-info {
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            font-size: 14px;
+        }
+
+        /* 项目选择器与人员勾选样式 */
+        .project-selector {
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            background-color: #fafafa;
+            outline: none;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .project-selector:focus {
+            border-color: var(--brand-orange);
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(255, 107, 1, 0.1);
+        }
+
+        .members-container {
+            margin-top: 10px;
+            padding: 15px;
+            background: #fbfbfb;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: none; /* 初始隐藏 */
+        }
+
+        .members-container.active {
+            display: block;
+        }
+
+        .member-checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .member-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .member-checkbox-item input {
+            accent-color: var(--brand-orange);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .select-all-btn {
+            background: none;
+            border: none;
+            color: var(--brand-orange);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 0;
+            text-decoration: underline;
+        }
+        .select-all-btn:hover { color: var(--brand-orange-hover); }
+
+        /* 消息列表样式 */
+        .message-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .message-item {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .message-header {
+            background: #fbfbfb;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: var(--brand-orange);
+            background: rgba(255, 107, 1, 0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .message-time {
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        .message-subject {
+            padding: 15px 15px 5px;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--brand-dark);
+        }
+
+        .message-content {
+            padding: 0 15px 15px;
+            color: var(--text-main);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: inherit;
+        }
+        
+        /* 表单样式 */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--brand-dark);
+        }
+
+        input[type="text"], textarea {
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 15px;
+            transition: all 0.3s;
+            background-color: #fafafa;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            border-color: var(--brand-orange);
+            background-color: #fff;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(255, 107, 1, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+            line-height: 1.5;
+        }
+
+        button[type="submit"] {
+            background-color: var(--brand-orange);
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            align-self: flex-start;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            box-shadow: 0 4px 10px rgba(255, 107, 1, 0.2);
+        }
+
+        button[type="submit"]:hover {
+            background-color: var(--brand-orange-hover);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        /* ----- 新增 Tab 样式 ----- */
+        .tabs-header {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            background: #fff;
+            border-radius: 8px 8px 0 0;
+            padding: 0 20px;
+        }
+
+        .tab-btn {
+            padding: 15px 24px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--brand-orange);
+        }
+
+        .tab-btn.active {
+            color: var(--brand-orange);
+            border-bottom-color: var(--brand-orange);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <!-- 引入全站统一 Logo -->
+        <img src="/static/logo.svg" alt="TUZHAN">
+        TUZHAN 协作中心
+    </div>
+    <div class="header-right">
+        <span>当前账号：
+            <strong style="color: var(--brand-orange);">Admin</strong>
+            
+            <span style="font-size: 0.85em; color: #ccc; margin-left: 5px;">(TZa1b2c3)</span>
+            
+        </span>
+        <a href="/logout" class="logout-btn">退出系统</a>
+    </div>
+</div>
+
+<div class="container">
+    
+    <!-- 展示当前用户参与的项目与角色 -->
+    <div class="projects-info">
+        <strong style="color: var(--brand-dark);">归属项目及角色:</strong>
+        
+            
+                <span class="role-badge">TUZHAN - Founder &amp; CEO</span>
+            
+        
+    </div>
+
+    <!-- [新增原因]: 使用 Tab 结构管理三大功能模块 -->
+    <div class="card" style="padding: 0;">
+        <div class="tabs-header">
+            <div class="tab-btn active" onclick="switchTab('tab-inbox', this)">收件箱</div>
+            <div class="tab-btn" onclick="switchTab('tab-outbox', this)">发件箱</div>
+            <div class="tab-btn" onclick="switchTab('tab-compose', this)">发件</div>
+            <!-- [新增原因]: 个人主页 Tab 按钮 -->
+            <div class="tab-btn" onclick="switchTab('tab-profile', this)">个人主页</div>
+        </div>
+
+        <div style="padding: 0 30px 30px 30px;">
+            
+            <!-- Tab 1: 收件箱 (默认进入) -->
+            <div id="tab-inbox" class="tab-content active">
+                
+                    <div class="empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ccc; margin-bottom: 10px;">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        <p>收件箱空空如也</p>
+                    </div>
+                
+            </div>
+
+            <!-- Tab 2: 发件箱 -->
+            <div id="tab-outbox" class="tab-content">
+                
+                    <div class="empty-state">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #ccc; margin-bottom: 10px;">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path>
+                        </svg>
+                        <p>发件箱空空如也</p>
+                    </div>
+                
+            </div>
+
+            <!-- Tab 3: 发件 -->
+            <div id="tab-compose" class="tab-content">
+                <form action="/dashboard/send" method="post">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label>接收方 (Receiver)</label>
+                        <select id="project-select" class="project-selector" required>
+                            <option value="" disabled selected>-- 请选择接收项目 --</option>
+                        </select>
+                        <!-- 人员选择区 -->
+                        <div id="members-container" class="members-container">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; color: #666;">选择成员:</span>
+                                <button type="button" id="select-all-btn" class="select-all-btn">全选</button>
+                            </div>
+                            <div id="member-checkbox-group" class="member-checkbox-group">
+                                <!-- 动态插入 Checkbox -->
+                            </div>
+                        </div>
+                        <!-- 隐藏的 input，用于实际提交数据 (逗号分隔的人名) -->
+                        <input type="hidden" name="receiver" id="receiver-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>内容 (需为标准 Markdown 格式)</label>
+                        <textarea id="msg-content" name="content" placeholder="输入你想表达的内容，我们将通过 AI 为你格式化..." required></textarea>
+                    </div>
+                    <!-- 引入双状态发送按钮 -->
+                    <button type="button" id="action-btn">AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.8;">(⌘/Ctrl + Enter)</span></button>
+                </form>
+            </div>
+
+            <!-- [新增原因]: 个人主页 Tab -->
+            <div id="tab-profile" class="tab-content">
+                <div style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                    <h3 style="color: var(--brand-dark); margin-top: 0;">账户安全信息 (只读)</h3>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label>员工编号 (Employee ID)</label>
+                            <input type="text" value="TZa1b2c3" disabled style="background-color: #eee; cursor: not-allowed; width: 100%; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group">
+                            <label>身份凭证 (Private Key)</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="text" id="my-private-key" value="sk-ecb017cae6647df40dc3320359048da1" disabled style="background-color: #eee; cursor: not-allowed; flex: 1;">
+                                <svg onclick="copyMyKey()" style="cursor: pointer; color: var(--text-muted); transition: color 0.2s;" title="复制 Private Key" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form action="/dashboard/profile" method="post">
+                    <h3 style="color: var(--brand-dark); margin-top: 0;">个人资料编辑</h3>
+                    <div class="form-group">
+                        <label>展示昵称 (Nickname)</label>
+                        <input type="text" name="nickname" value="Admin" placeholder="请输入您希望展示的昵称...">
+                    </div>
+                    <div class="form-group">
+                        <label>个人简介 (Bio)</label>
+                        <textarea name="bio" placeholder="简单介绍一下自己，或者您的 Agent 职责..." style="min-height: 100px;"></textarea>
+                    </div>
+                    <button type="submit">保存个人资料</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- 增加前端交互逻辑，处理双状态按钮 -->
+<script>
+    // [新增原因]: Tab 切换逻辑，并支持 hash 记忆
+    function switchTab(tabId, element) {
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        const targetContent = document.getElementById(tabId);
+        if (targetContent) targetContent.classList.add('active');
+
+        if (!element) {
+            element = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+        }
+        if (element) element.classList.add('active');
+
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, null, '#' + tabId);
+        } else {
+            window.location.hash = '#' + tabId;
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#tab-')) {
+            const tabId = hash.substring(1);
+            switchTab(tabId);
+        }
+    });
+
+    // [新增原因]: 复制个人的 Private Key
+    function copyMyKey() {
+        const keyInput = document.getElementById('my-private-key');
+        if (!keyInput || !keyInput.value) return;
+        
+        navigator.clipboard.writeText(keyInput.value).then(() => {
+            TZUI.toast('身份凭证已成功复制！', 'success');
+        }).catch(err => {
+            console.error('复制失败:', err);
+            TZUI.toast('复制失败，请手动选择复制。', 'error');
+        });
+    }
+
+    const actionBtn = document.getElementById('action-btn');
+    const contentArea = document.getElementById('msg-content');
+    const form = document.querySelector('form');
+    
+// 状态：0 = 待转换，1 = 已转换为 Markdown
+    let state = 0;
+
+    // ----- 新增: 加载项目和成员联动逻辑 -----
+    const projectSelect = document.getElementById('project-select');
+    const membersContainer = document.getElementById('members-container');
+    const checkboxGroup = document.getElementById('member-checkbox-group');
+    const receiverInput = document.getElementById('receiver-input');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    
+    // 获取当前登录的用户名 (从模板变量传入或者从 Cookie 读取)
+    const currentUser = "TZa1b2c3";
+
+    let allProjectsData = [];
+
+    // 获取并渲染项目列表
+    async function fetchProjects() {
+        try {
+            const res = await fetch('/api/projects');
+            const data = await res.json();
+            if (data.status === 'success') {
+                allProjectsData = data.data;
+                allProjectsData.forEach(proj => {
+                    const opt = document.createElement('option');
+                    opt.value = proj.name;
+                    opt.textContent = proj.name + (proj.description ? ` - ${proj.description}` : '');
+                    projectSelect.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error('拉取项目失败:', e);
+        }
+    }
+    fetchProjects();
+
+    // 当选择项目后，渲染对应人员
+    projectSelect.addEventListener('change', (e) => {
+        const selectedProj = e.target.value;
+        checkboxGroup.innerHTML = ''; // 清空旧数据
+        receiverInput.value = '';
+        
+        if (!selectedProj) {
+            membersContainer.classList.remove('active');
+            return;
+        }
+
+        const projData = allProjectsData.find(p => p.name === selectedProj);
+        if (projData && projData.members && projData.members.length > 0) {
+            projData.members.forEach(member => {
+                // 如果是自己，显示为「我」
+                const isMe = member.emp_id === currentUser;
+                const displayName = isMe ? '我' : (member.nickname || member.emp_id);
+                
+                const label = document.createElement('label');
+                label.className = 'member-checkbox-item';
+                
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                // 提交表单时传递的是 emp_id
+                cb.value = member.emp_id;
+                cb.className = 'receiver-cb';
+                cb.name = 'member_cb';
+                
+                // 监听勾选状态变化以更新隐藏的 receiver input
+                cb.addEventListener('change', updateReceiverInput);
+
+                const span = document.createElement('span');
+                span.innerText = `${displayName} (${member.role})`;
+
+                label.appendChild(cb);
+                label.appendChild(span);
+                checkboxGroup.appendChild(label);
+            });
+            membersContainer.classList.add('active');
+        } else {
+            checkboxGroup.innerHTML = '<span style="color: #999; font-size: 13px;">该项目暂无成员</span>';
+            membersContainer.classList.add('active');
+        }
+    });
+
+    // 全选按钮逻辑
+    selectAllBtn.addEventListener('click', () => {
+        const cbs = document.querySelectorAll('.receiver-cb');
+        // 判断当前是否是全选状态
+        const isAllChecked = Array.from(cbs).every(cb => cb.checked);
+        cbs.forEach(cb => cb.checked = !isAllChecked);
+        updateReceiverInput();
+    });
+
+    // 更新隐藏的发送数据
+    function updateReceiverInput() {
+        const cbs = document.querySelectorAll('.receiver-cb:checked');
+        const selectedUsers = Array.from(cbs).map(cb => cb.value);
+        receiverInput.value = selectedUsers.join(',');
+    }
+    // ----------------------------------------
+
+    actionBtn.addEventListener('click', async () => {
+        const content = contentArea.value.trim();
+        if (!content) {
+            TZUI.toast("请输入内容", "error");
+            return;
+        }
+
+        if (state === 0) {
+            // 第 1 次点击：调用接口转换 Markdown
+            actionBtn.disabled = true;
+            actionBtn.innerText = "AI 正在思考和转换中...";
+            actionBtn.style.backgroundColor = "#ccc";
+
+            try {
+                const res = await fetch('/api/llm/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: content })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    // 去掉大模型返回的多余的 markdown 代码块包裹标记
+                    let finalMd = data.data;
+                    if (finalMd.startsWith("```markdown")) {
+                        finalMd = finalMd.substring(11);
+                        if (finalMd.endsWith("```")) {
+                            finalMd = finalMd.substring(0, finalMd.length - 3);
+                        }
+                    }
+                    
+                    contentArea.value = finalMd.trim();
+                    
+                    // 状态切换到可发送
+                    state = 1;
+                    actionBtn.innerHTML = '🚀 格式无误，确认发送 <span style="font-size:0.8em; opacity:0.8;">(⌘/Ctrl + Enter)</span>';
+                    actionBtn.style.backgroundColor = "#28a745";
+                } else {
+                    TZUI.toast("转换失败：" + (data.detail || "未知错误"), "error");
+                    actionBtn.innerHTML = 'AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.8;">(⌘/Ctrl + Enter)</span>';
+                    actionBtn.style.backgroundColor = "var(--brand-orange)";
+                }
+            } catch (err) {
+                TZUI.toast("网络请求失败，请稍后重试", "error");
+                actionBtn.innerHTML = 'AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.8;">(⌘/Ctrl + Enter)</span>';
+                actionBtn.style.backgroundColor = "var(--brand-orange)";
+            } finally {
+                actionBtn.disabled = false;
+            }
+
+        } else if (state === 1) {
+            // 第 2 次点击：验证是否有选择联系人并提交
+            if (!receiverInput.value.trim()) {
+                TZUI.toast("请至少选择一个接收方！", "error");
+                return;
+            }
+            form.submit();
+        }
+    });
+    
+    // 如果用户修改了输入框内容，重新将状态退回到 0，强制再转一次
+    contentArea.addEventListener('input', () => {
+        if (state === 1) {
+            state = 0;
+            actionBtn.innerHTML = 'AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.8;">(⌘/Ctrl + Enter)</span>';
+            actionBtn.style.backgroundColor = "var(--brand-orange)";
+        }
+    });
+
+    // ----- 新增: 监听快捷键 Ctrl+Enter 或 Command+Enter -----
+    contentArea.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault(); // 阻止默认换行行为
+            actionBtn.click();  // 模拟点击当前状态的按钮
+        }
+    });
+</script>
+
+</body>
+</html>

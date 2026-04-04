@@ -1,0 +1,30 @@
+{
+  "initial_users": [
+    {
+      "emp_id": "TZzhjiac",
+      "nickname": "加葱",
+      "is_admin": true,
+      "projects": [
+        { "project": "TUZHAN", "role": "Admin" },
+        { "project": "TUVE", "role": "Admin" },
+        { "project": "SEE2AI", "role": "Admin" }
+      ]
+    },
+    {
+      "emp_id": "TZyangjx",
+      "nickname": "金祥",
+      "is_admin": false,
+      "projects": [
+        { "project": "TUVE", "role": "Product Manager" }
+      ]
+    },
+    {
+      "emp_id": "TZlixu01",
+      "nickname": "李勗",
+      "is_admin": false,
+      "projects": [
+        { "project": "TUVE", "role": "Fullstack Engineer" }
+      ]
+    }
+  ]
+}

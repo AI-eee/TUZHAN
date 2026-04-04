@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员控制台 - TUZHAN 协作中心</title>
+    <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/ui.css">
+    <script src="/static/js/ui.js"></script>
+    <style>
+        :root {
+            --brand-orange: #FF6B01;
+            --brand-orange-hover: #e56000;
+            --brand-dark: #4B4B4B;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --border-color: #eaeaea;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .header {
+            background: #2c2c2c;
+            color: #fff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--brand-orange);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-left img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 15px;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: var(--brand-orange);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: grid;
+            gap: 30px;
+            grid-template-columns: 1fr;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--brand-dark);
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background-color: var(--brand-orange);
+            border-radius: 2px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #fbfbfb;
+            font-weight: 600;
+            color: var(--brand-dark);
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .role-badge {
+            background-color: rgba(255, 107, 1, 0.1);
+            color: var(--brand-orange);
+            border: 1px solid rgba(255, 107, 1, 0.3);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            display: inline-block;
+            margin: 2px;
+            white-space: nowrap;
+        }
+
+        .msg-preview {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #666;
+        }
+
+        .key-text {
+            font-family: monospace;
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        /* [新增原因]: 增加操作按钮的样式，确保体验和间距 */
+        .icon-btn {
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .copy-btn:hover {
+            color: #28a745; /* 绿色 */
+        }
+
+        .refresh-btn:hover {
+            color: #dc3545; /* 红色，提示有覆盖风险 */
+        }
+
+        /* ----- 新增 Tab 样式 ----- */
+        .tabs-header {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--brand-orange);
+        }
+
+        .tab-btn.active {
+            color: var(--brand-orange);
+            border-bottom-color: var(--brand-orange);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+        /* ------------------------- */
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        /* [新增原因]: 项目卡片样式 */
+        .project-card {
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .project-header h3 {
+            margin: 0;
+            color: var(--brand-orange);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .member-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .member-item {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .member-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .member-item-role {
+            font-size: 0.85em;
+            color: var(--brand-orange);
+            background: rgba(255, 107, 1, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        /* ----- 新增 弹窗(Modal) 样式 ----- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: #fff;
+            width: 700px;
+            max-width: 90vw;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--brand-dark);
+            font-size: 18px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .modal-close:hover {
+            color: var(--brand-orange);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-body textarea {
+            width: 100%;
+            height: 350px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            background: #fdfdfd;
+        }
+
+        .modal-body textarea:focus {
+            outline: none;
+            border-color: var(--brand-orange);
+            box-shadow: 0 0 0 3px rgba(255, 107, 1, 0.1);
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            background: #fafafa;
+        }
+
+        .btn-cancel {
+            padding: 10px 20px;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-save {
+            padding: 10px 20px;
+            border: none;
+            background: var(--brand-orange);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-save:hover {
+            background: var(--brand-orange-hover);
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="/static/logo.svg" alt="TUZHAN">
+        TUZHAN 全局审查中心 (Admin)
+    </div>
+    <div class="header-right">
+        <span>超级管理员：<strong style="color: var(--brand-orange);">{{ user_info.nickname if user_info and user_info.nickname else current_emp_id }}</strong></span>
+        <a href="/dashboard" class="nav-btn">返回工作台</a>
+        <a href="/logout" class="nav-btn">退出系统</a>
+    </div>
+</div>
+
+<div class="container">
+    
+    <div class="card">
+        <div class="tabs-header">
+            <div class="tab-btn active" onclick="switchTab('tab-users', this)">所有成员</div>
+            <!-- [新增原因]: 新增项目管理 Tab 按钮 -->
+            <div class="tab-btn" onclick="switchTab('tab-projects', this)">项目管理</div>
+            <div class="tab-btn" onclick="switchTab('tab-messages', this)">所有收发的信息</div>
+            <div class="tab-btn" onclick="switchTab('tab-config', this)">系统配置</div>
+        </div>
+
+        <!-- Tab 1: 所有成员 -->
+        <div id="tab-users" class="tab-content active">
+            <h2>组织架构审查 (Users)</h2>
+            {% if all_users|length == 0 %}
+                <div class="empty-state">暂无人员数据</div>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>工号</th>
+                            <th>员工姓名/昵称</th>
+                            <th>参与项目及角色</th>
+                            <th>身份凭证 (Private Key)</th>
+                            <th>入职时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for u in all_users %}
+                        <tr>
+                            <td><strong>{{ u.emp_id }}</strong></td>
+                            <td>{{ u.nickname }}</td>
+                            <td>
+                                {% for p in u.projects_list %}
+                                    <span class="role-badge">{{ p.project }} - {{ p.role }}</span>
+                                {% endfor %}
+                            </td>
+                            <!-- [修改原因]: 增加复制和重新生成 Key 的按钮，并确保一定间距防止误操作 -->
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="key-text" id="key-{{ u.emp_id }}">{{ u.private_key }}</span>
+                                    <svg onclick="copyKey('{{ u.emp_id }}')" class="icon-btn copy-btn" title="复制 Private Key" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    <svg onclick="regenerateKey('{{ u.emp_id }}')" class="icon-btn refresh-btn" title="重新生成 Private Key" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                    </svg>
+                                </div>
+                            </td>
+                            <td style="color: var(--text-muted);">{{ u.created_at }}</td>
+                            <td>
+                                <!-- 状态切换 -->
+                                <button id="status-btn-{{ u.emp_id }}" class="nav-btn" style="background: {% if u.status == 'disabled' %}#6c757d{% else %}#28a745{% endif %}; padding: 4px 8px; border: none; cursor: pointer;" onclick="toggleStatus('{{ u.emp_id }}', this)">
+                                    {% if u.status == 'disabled' %}禁用{% else %}正常{% endif %}
+                                </button>
+                            </td>
+                            <td>
+                                <!-- [修改原因]: 添加编辑身份设定的按钮，将数据存入 data 属性中防止引号转义错误 -->
+                                <button class="nav-btn" style="background: var(--brand-dark); padding: 4px 8px; border: none; cursor: pointer;" 
+                                        data-emp="{{ u.emp_id }}" 
+                                        data-nickname="{{ u.nickname }}" 
+                                        data-identity="{{ u.identity_md or '' }}"
+                                        onclick="openIdentityModal(this)">
+                                    编辑身份设定
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+
+        <!-- [新增原因]: Tab 1.5 项目管理 -->
+        <div id="tab-projects" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; border: none;">动态项目管理 (Projects)</h2>
+                <button class="btn-save" onclick="openProjectModal()">+ 新增项目</button>
+            </div>
+
+            {% if org_projects|length == 0 %}
+                <div class="empty-state">暂无项目数据</div>
+            {% else %}
+                {% for proj in org_projects %}
+                <div class="project-card">
+                    <div class="project-header">
+                        <h3>
+                            {{ proj.name }}
+                            <span class="project-desc-text" 
+                                  data-project="{{ proj.name }}" 
+                                  title="双击修改项目说明"
+                                  ondblclick="editProjectDesc(this)"
+                                  style="font-size: 14px; color: var(--text-muted); font-weight: normal; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background 0.2s;">
+                                {{ proj.description if proj.description else '暂无说明，双击添加' }}
+                            </span>
+                        </h3>
+                        <button class="nav-btn" style="background: var(--brand-dark); padding: 6px 12px; border: none; cursor: pointer;" onclick="openMemberModal('{{ proj.name }}')">+ 添加成员</button>
+                    </div>
+                    
+                    {% if proj.members|length == 0 %}
+                        <div style="color: var(--text-muted); font-size: 14px;">该项目暂无成员</div>
+                    {% else %}
+                        <div class="member-list">
+                            {% for m in proj.members %}
+                            <div class="member-item">
+                                <div class="member-item-header">
+                                    <strong>{{ m.nickname }}</strong>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="member-item-role">{{ m.role }}</span>
+                                        <svg onclick="removeProjectMember('{{ proj.name }}', '{{ m.emp_id }}')" class="icon-btn refresh-btn" style="color: #dc3545; cursor: pointer;" title="移除该成员" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div style="font-size: 13px; color: var(--text-muted);">工号: {{ m.emp_id }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Tab 2: 所有收发的信息 -->
+        <div id="tab-messages" class="tab-content">
+            <h2>全站消息流转审查 (Messages)</h2>
+            {% if all_messages|length == 0 %}
+                <div class="empty-state">全站暂无任何消息流转</div>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="15%">时间</th>
+                            <th width="15%">发件人</th>
+                            <th width="15%">收件人</th>
+                            <th width="45%">Markdown 内容预览</th>
+                            <th width="10%">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for msg in all_messages %}
+                        <tr>
+                            <td style="color: var(--text-muted); font-size: 0.9em;">{{ msg.created_at }}</td>
+                            <td><strong>{{ msg.sender }}</strong></td>
+                            <td><strong>{{ msg.receiver }}</strong></td>
+                            <td>
+                                <div class="msg-preview" title="{{ msg.content }}">{{ msg.content }}</div>
+                            </td>
+                            <td>
+                                {% if msg.status == 'unread' %}
+                                    <span style="color: var(--brand-orange);">未读</span>
+                                {% else %}
+                                    <span style="color: #28a745;">已读</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+
+        <!-- Tab 3: 系统配置 -->
+        <div id="tab-config" class="tab-content">
+            <h2>系统运行配置 (System Config)</h2>
+            <table style="width: 50%;">
+                <tbody>
+                    <tr>
+                        <td width="40%"><strong>运行环境</strong></td>
+                        <td>
+                            {% if system_config.env == 'production' %}
+                                <span style="color: #28a745; font-weight: bold;">Production (正式服)</span>
+                            {% else %}
+                                <span style="color: var(--brand-orange); font-weight: bold;">Development (开发测试服)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>API 基础地址</strong></td>
+                        <td><code>{{ system_config.base_url }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>数据库存储路径</strong></td>
+                        <td><code>{{ system_config.db_path }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>LLM_API_KEY</strong></td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span class="key-text" id="display-llm-key">{{ system_config.llm_api_key }}</span>
+                                <button class="nav-btn" style="background: var(--brand-dark); padding: 4px 8px; border: none; cursor: pointer; font-size: 12px;" onclick="openLLMKeyModal()">
+                                    修改密钥
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- [新增原因]: 修改 LLM API Key 弹窗 -->
+<div id="llm-key-modal" class="modal-overlay" onclick="closeLLMKeyModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()" style="width: 500px;">
+        <div class="modal-header">
+            <h3>修改 LLM API Key</h3>
+            <button class="modal-close" onclick="closeLLMKeyModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="margin-top: 0; color: var(--text-muted); font-size: 14px;">
+                请输入新的阿里百炼大模型 API Key。保存后将自动更新环境变量及 .env 配置文件。
+            </p>
+            <input type="text" id="llm-key-input" placeholder="sk-..." style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeLLMKeyModal()">取消</button>
+            <button class="btn-save" onclick="saveLLMKey()">确认修改</button>
+        </div>
+    </div>
+</div>
+
+<!-- [新增原因]: 新增项目弹窗 -->
+<div id="project-modal" class="modal-overlay" onclick="closeProjectModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()" style="width: 500px;">
+        <div class="modal-header">
+            <h3 id="project-modal-title">新增项目</h3>
+            <button class="modal-close" onclick="closeProjectModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="margin-top: 0; color: var(--text-muted); font-size: 14px;">
+                请输入新项目的代号和描述。
+            </p>
+            <input type="text" id="project-name-input" placeholder="项目名称 (如: SEE2AI)" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+            <input type="text" id="project-desc-input" placeholder="项目描述 (如: 视觉大模型应用)" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeProjectModal()">取消</button>
+            <button class="btn-save" onclick="saveProject()">确认新增</button>
+        </div>
+    </div>
+</div>
+
+<!-- [修改原因]: 添加成员弹窗，改为从系统现有用户中勾选 -->
+<div id="member-modal" class="modal-overlay" onclick="closeMemberModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()" style="width: 500px;">
+        <div class="modal-header">
+            <h3 id="member-modal-title">向项目添加成员</h3>
+            <button class="modal-close" onclick="closeMemberModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px;">
+            <p style="margin-top: 0; color: var(--text-muted); font-size: 14px;">
+                请从下方勾选需要加入该项目的员工（仅显示系统中已有的正常状态员工），并统一设置他们的角色。
+            </p>
+            <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: #fafafa;">
+                {% for u in all_users %}
+                    {% if u.status == 'active' %}
+                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" name="project_member_cb" value="{{ u.emp_id }}">
+                        {{ u.nickname if u.nickname else u.emp_id }} ({{ u.emp_id }})
+                    </label>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <input type="text" id="member-role-input" placeholder="项目角色 (如: Product Manager)" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+            <input type="hidden" id="target-project-name">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeMemberModal()">取消</button>
+            <button class="btn-save" onclick="saveMember()">确认添加</button>
+        </div>
+    </div>
+</div>
+
+<!-- [新增原因]: 身份设定 Markdown 编辑弹窗 -->
+<div id="identity-modal" class="modal-overlay" onclick="closeIdentityModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modal-title">编辑员工身份设定</h3>
+            <button class="modal-close" onclick="closeIdentityModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-top: 0; color: var(--text-muted); font-size: 14px;">
+                请使用 <strong>Markdown</strong> 格式编辑该员工的角色设定与行为规范。如果为空，已为您生成默认模板。
+            </p>
+            <textarea id="identity-textarea" placeholder="输入 Markdown 内容..."></textarea>
+            <input type="hidden" id="current-emp-id">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeIdentityModal()">取消</button>
+            <button class="btn-save" onclick="saveIdentity()">保存更改</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // [新增原因]: 增加复制到剪贴板功能
+    function copyKey(empId) {
+        const keyText = document.getElementById(`key-${empId}`).innerText;
+        navigator.clipboard.writeText(keyText).then(() => {
+            TZUI.toast('Private Key 已成功复制！', 'success');
+        }).catch(err => {
+            console.error('复制失败:', err);
+            TZUI.toast('复制失败，请手动选择复制。', 'error');
+        });
+    }
+
+    // [新增原因]: 增加重新生成密钥并调用后端接口功能
+    function regenerateKey(empId) {
+        TZUI.confirm('确定要为工号 ' + empId + ' 重新生成 Private Key 吗？\n此操作将导致其当前的 Key 立即失效，必须重新分发！', async () => {
+            try {
+                const response = await fetch(`/admin/users/${empId}/regenerate-key`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    document.getElementById(`key-${empId}`).innerText = data.new_key;
+                    TZUI.toast('已成功重新生成，新 Key: ' + data.new_key, 'success');
+                } else {
+                    TZUI.toast('重新生成失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        });
+    }
+
+    // [新增原因]: 切换用户的状态（禁用/正常）
+    function toggleStatus(empId, btnElement) {
+        const currentText = btnElement.innerText.trim();
+        const newStatus = currentText === '禁用' ? 'active' : 'disabled';
+        const confirmMsg = newStatus === 'disabled' ? 
+            `确定要禁用工号 ${empId} 吗？禁用后该员工将无法使用系统。` : 
+            `确定要启用工号 ${empId} 吗？`;
+
+        TZUI.confirm(confirmMsg, async () => {
+            try {
+                const response = await fetch(`/admin/users/${empId}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    if (newStatus === 'disabled') {
+                        btnElement.innerText = '禁用';
+                        btnElement.style.background = '#6c757d';
+                    } else {
+                        btnElement.innerText = '正常';
+                        btnElement.style.background = '#28a745';
+                    }
+                    TZUI.toast('状态更新成功！', 'success');
+                } else {
+                    TZUI.toast('状态更新失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        });
+    }
+
+    // [新增原因]: 弹窗交互逻辑，包含默认 Markdown 模板生成
+    function openIdentityModal(btnElement) {
+        const empId = btnElement.getAttribute('data-emp');
+        const username = btnElement.getAttribute('data-username');
+        let identityMd = btnElement.getAttribute('data-identity') || '';
+
+        // 如果该员工尚未设置身份，则提供一个初始化格式模板
+        if (!identityMd.trim()) {
+            identityMd = `# 员工身份设定: ${username}
+
+## 1. 基本信息
+- **姓名**: ${username}
+- **工号**: ${empId}
+
+## 2. 核心角色与职责
+请描述该员工在当前团队中的主要角色及负责范围：
+- [ ] 核心职责一...
+
+## 3. Agent 协作设定
+请详细描述该员工的专属 Agent 在处理信息流转时的行为边界与性格特征：
+1. 
+2. 
+`;
+        }
+
+        document.getElementById('modal-title').innerText = `编辑身份设定: ${username} (${empId})`;
+        document.getElementById('identity-textarea').value = identityMd;
+        document.getElementById('current-emp-id').value = empId;
+        
+        // 绑定按钮引用，方便保存后写回数据
+        document.getElementById('identity-modal').currentBtn = btnElement;
+        document.getElementById('identity-modal').style.display = 'flex';
+    }
+
+    function closeIdentityModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('identity-modal').style.display = 'none';
+    }
+
+    async function saveIdentity() {
+        const empId = document.getElementById('current-emp-id').value;
+        const identityMd = document.getElementById('identity-textarea').value;
+        const btnElement = document.getElementById('identity-modal').currentBtn;
+
+        try {
+            const response = await fetch(`/admin/users/${empId}/identity`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identity_md: identityMd })
+            });
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                TZUI.toast('身份设定保存成功！', 'success');
+                // 同步写回按钮的 data 属性中，避免刷新页面前数据丢失
+                if (btnElement) {
+                    btnElement.setAttribute('data-identity', identityMd);
+                }
+                closeIdentityModal();
+            } else {
+                TZUI.toast('保存失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('请求出错:', error);
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
+    }
+
+    // [新增原因]: 新增项目交互逻辑
+    function openProjectModal() {
+        document.getElementById('project-name-input').value = '';
+        document.getElementById('project-desc-input').value = '';
+        document.getElementById('project-modal').style.display = 'flex';
+    }
+
+    function closeProjectModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('project-modal').style.display = 'none';
+    }
+
+    async function saveProject() {
+        const name = document.getElementById('project-name-input').value.trim();
+        const desc = document.getElementById('project-desc-input').value.trim();
+
+        if (!name) {
+            TZUI.toast('项目名称不能为空！', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/admin/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, description: desc })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                TZUI.toast('项目添加成功！', 'success');
+                setTimeout(() => window.location.reload(), 1000); // 刷新页面以显示最新数据
+            } else {
+                TZUI.toast('添加失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('请求出错:', error);
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
+    }
+
+    // [新增原因]: 双击编辑项目描述
+    function editProjectDesc(spanElement) {
+        const currentDesc = spanElement.innerText.trim();
+        const projectName = spanElement.getAttribute('data-project');
+        
+        // 变成输入框
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentDesc === '暂无说明，双击添加' ? '' : currentDesc;
+        input.style.cssText = 'font-size: 14px; color: var(--text-main); padding: 4px 8px; border: 1px solid var(--brand-orange); border-radius: 4px; outline: none; width: 300px; margin-left: 10px;';
+        
+        spanElement.style.display = 'none';
+        spanElement.parentNode.insertBefore(input, spanElement.nextSibling);
+        input.focus();
+
+        let isSaving = false;
+
+        const saveDesc = async () => {
+            if (isSaving) return;
+            isSaving = true;
+            
+            const newDesc = input.value.trim();
+            // 恢复显示
+            input.remove();
+            spanElement.style.display = 'inline-block';
+            
+            if (newDesc === currentDesc || (!newDesc && currentDesc === '暂无说明，双击添加')) {
+                return; // 未做修改
+            }
+
+            try {
+                const response = await fetch(`/admin/projects/${encodeURIComponent(projectName)}/description`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: newDesc })
+                });
+                const data = await response.json();
+                if (response.ok && data.status === 'success') {
+                    spanElement.innerText = newDesc || '暂无说明，双击添加';
+                    TZUI.toast('项目说明已更新！', 'success');
+                } else {
+                    TZUI.toast('更新失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        };
+
+        // 绑定失去焦点和回车事件
+        input.addEventListener('blur', saveDesc);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveDesc();
+            if (e.key === 'Escape') {
+                input.remove();
+                spanElement.style.display = 'inline-block';
+            }
+        });
+    }
+
+    // [新增原因]: 添加成员交互逻辑
+    function openMemberModal(projectName) {
+        document.getElementById('target-project-name').value = projectName;
+        document.getElementById('member-modal-title').innerText = `向项目 [${projectName}] 批量添加成员`;
+        document.querySelectorAll('input[name="project_member_cb"]').forEach(cb => cb.checked = false);
+        document.getElementById('member-role-input').value = '';
+        document.getElementById('member-modal').style.display = 'flex';
+    }
+
+    function closeMemberModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('member-modal').style.display = 'none';
+    }
+
+    // [新增原因]: 移除项目成员交互逻辑
+    function removeProjectMember(projectName, empId) {
+        TZUI.confirm(`确定要将工号 ${empId} 从项目 [${projectName}] 中移除吗？`, async () => {
+            try {
+                const response = await fetch(`/admin/projects/${encodeURIComponent(projectName)}/members/${encodeURIComponent(empId)}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (response.ok && data.status === 'success') {
+                    TZUI.toast('移除成功！', 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    TZUI.toast('移除失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('请求出错:', error);
+                TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+            }
+        });
+    }
+
+    async function saveMember() {
+        const projName = document.getElementById('target-project-name').value;
+        const role = document.getElementById('member-role-input').value.trim();
+        
+        const selectedCbs = document.querySelectorAll('input[name="project_member_cb"]:checked');
+        const empIds = Array.from(selectedCbs).map(cb => cb.value);
+
+        if (empIds.length === 0 || !role) {
+            TZUI.toast('请至少勾选一名员工，并填写统一的项目角色！', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/admin/projects/${encodeURIComponent(projName)}/members`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emp_ids: empIds, role: role })
+            });
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                TZUI.toast(`成功将 ${data.added} 名成员加入到项目中！`, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                TZUI.toast('添加失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('请求出错:', error);
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
+    }
+
+    // [新增原因]: LLM API Key 编辑交互逻辑
+    function openLLMKeyModal() {
+        const currentKey = document.getElementById('display-llm-key').innerText;
+        document.getElementById('llm-key-input').value = currentKey === '未配置' ? '' : currentKey;
+        document.getElementById('llm-key-modal').style.display = 'flex';
+    }
+
+    function closeLLMKeyModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('llm-key-modal').style.display = 'none';
+    }
+
+    async function saveLLMKey() {
+        const newKey = document.getElementById('llm-key-input').value.trim();
+        if (!newKey) {
+            TZUI.toast('API Key 不能为空！', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/admin/config/llm-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ llm_api_key: newKey })
+            });
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                TZUI.toast('LLM API Key 更新成功！', 'success');
+                // 前端屏蔽显示逻辑
+                const masked = newKey.length > 10 ? newKey.substring(0, 6) + '******' + newKey.substring(newKey.length - 4) : newKey;
+                document.getElementById('display-llm-key').innerText = masked;
+                closeLLMKeyModal();
+            } else {
+                TZUI.toast('更新失败: ' + (data.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('请求出错:', error);
+            TZUI.toast('网络或服务器错误，请稍后重试。', 'error');
+        }
+    }
+
+    function switchTab(tabId, element) {
+        // 隐藏所有 tab-content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        // 取消所有 tab-btn 的 active 状态
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // 激活目标 Tab
+        const targetContent = document.getElementById(tabId);
+        if (targetContent) {
+            targetContent.classList.add('active');
+        }
+
+        // 激活目标按钮
+        if (!element) {
+            // 如果未传入 element，说明是代码触发的，通过 onclick 属性去寻找对应的按钮
+            element = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+        }
+        if (element) {
+            element.classList.add('active');
+        }
+
+        // [修改原因]: 科学做法，使用 HTML5 history.replaceState 来无感更新 URL 的 Hash，
+        // 既实现了锚点记录状态，又避免了点击时页面上下跳动的问题。
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, null, '#' + tabId);
+        } else {
+            window.location.hash = '#' + tabId;
+        }
+    }
+
+    // [新增原因]: 页面加载时读取 URL 中的 Hash，如果存在则自动切换到对应 Tab
+    window.addEventListener('DOMContentLoaded', () => {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#tab-')) {
+            const tabId = hash.substring(1);
+            switchTab(tabId);
+        }
+    });
+
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#tab-')) {
+            const tabId = hash.substring(1);
+            switchTab(tabId);
+        }
+    });
+</script>
+
+</body>
+</html>

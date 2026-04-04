@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 文档 - TUZHAN 协作中心</title>
+    <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --brand-orange: #FF6B01;
+            --brand-orange-hover: #e56000;
+            --brand-dark: #4B4B4B;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --border-color: #eaeaea;
+            --code-bg: #2d2d2d;
+            --code-text: #f8f8f2;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #2c2c2c;
+            color: #fff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--brand-orange);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-left img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .header-right a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 15px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        .header-right a:hover {
+            background: var(--brand-orange);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--brand-dark);
+            margin-top: 0;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: var(--brand-orange);
+            font-size: 22px;
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background-color: var(--brand-orange);
+            border-radius: 2px;
+        }
+
+        .endpoint {
+            background: #f9f9f9;
+            border-left: 4px solid var(--brand-dark);
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #fff;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .method.get { background-color: #61affe; }
+        .method.post { background-color: #49cc90; }
+
+        .url {
+            font-family: monospace;
+            font-size: 16px;
+            color: var(--brand-dark);
+            font-weight: 600;
+        }
+
+        p {
+            margin: 10px 0;
+        }
+
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0,0,0,0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #d63384;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .auth-box {
+            background: rgba(255, 107, 1, 0.05);
+            border: 1px solid rgba(255, 107, 1, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .auth-box h3 {
+            color: var(--brand-orange);
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="/static/logo.svg" alt="TUZHAN">
+        TUZHAN 协作中心 API 开发者文档
+    </div>
+    <div class="header-right">
+        <a href="/">返回工作台</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h1>TUZHAN API 使用指南</h1>
+        <p>欢迎使用 TUZHAN 协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。</p>
+
+        <div class="auth-box">
+            <h3>🔑 身份鉴权 (Authentication)</h3>
+            <p>所有的接口都需要验证您的身份。请在 HTTP 请求头中添加 <code>Authorization</code> 字段，其值为 <code>Bearer &lt;您的 Private Key&gt;</code>。</p>
+            <pre>Authorization: Bearer sk-your-private-key-123456</pre>
+            <p style="font-size: 0.9em; color: var(--text-muted);">注：您可以在 Web 端使用 Private Key 登录，请向系统管理员 (TZa1b2c3) 申请您的专属 Key。</p>
+        </div>
+
+        <!-- 1. 获取项目及同事名单 -->
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/projects</span>
+            <p><strong>功能：</strong>拉取全公司的项目名单，以及各个项目内的同事名单。发件前可通过此接口确定收件人。</p>
+            <strong>响应示例：</strong>
+            <pre>
+{
+  "status": "success",
+  "data": [
+    {
+      "name": "TUVE",
+      "members": [
+        {"nickname": "Alice", "role": "PM", "emp_id": "TZe4f5g6"},
+        {"nickname": "Bob", "role": "Dev", "emp_id": "TZx7y8z9"}
+      ]
+    }
+  ]
+}
+            </pre>
+        </div>
+
+        <!-- 2. 发送消息 -->
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="url">/api/messages/send</span>
+            <p><strong>功能：</strong>给一个或一群同事发送 Markdown 文件消息。</p>
+            <p><strong>请求体 (JSON)：</strong></p>
+            <ul>
+                <li><code>receiver</code> (string): 收件人的 <code>emp_id</code>，如果是群发请用英文逗号 <code>,</code> 隔开。如果是发给自己请使用自己的 <code>emp_id</code>。</li>
+                <li><code>content</code> (string): 消息内容，必须是纯 Markdown 格式。</li>
+            </ul>
+            <strong>请求示例：</strong>
+            <pre>
+{
+  "receiver": "TZe4f5g6,TZx7y8z9",
+  "content": "# 项目进展\n\n- 完成了 API 开发\n- 修复了若干 Bug"
+}
+            </pre>
+        </div>
+
+        <!-- 3. 拉取收件箱 -->
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/messages/receive</span>
+            <p><strong>功能：</strong>拉取自己的收件箱（inbox）信息列表，按时间倒序排列。</p>
+            <strong>响应示例：</strong>
+            <pre>
+{
+  "status": "success",
+  "data": [
+    {
+      "metadata": {
+        "id": "a1b2c3d4",
+        "sender": "TZx7y8z9",
+        "receiver": "TZe4f5g6",
+        "timestamp": "2026-04-04 10:00:00",
+        "status": "unread"
+      },
+      "content": "# 请查阅最新文档\n\n内容...",
+      "filename": "db_record_a1b2c3d4.md"
+    }
+  ]
+}
+            </pre>
+        </div>
+
+        <!-- 4. 拉取发件箱 -->
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/messages/sent</span>
+            <p><strong>功能：</strong>查看自己的发件箱（outbox）信息列表，即自己发出去的所有消息，按时间倒序排列。</p>
+            <strong>响应示例：</strong>
+            <pre>
+{
+  "status": "success",
+  "data": [
+    {
+      "metadata": {
+        "id": "e5f6g7h8",
+        "sender": "TZe4f5g6",
+        "receiver": "TZx7y8z9",
+        "timestamp": "2026-04-04 09:30:00",
+        "status": "unread"
+      },
+      "content": "这是我刚刚发出去的消息...",
+      "filename": "db_record_e5f6g7h8.md"
+    }
+  ]
+}
+            </pre>
+        </div>
+
+        <!-- 5. 智能 Markdown 转换 -->
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="url">/api/llm/convert</span>
+            <p><strong>功能：</strong>(辅助工具) 如果您或您的 Agent 无法保证生成的文本是标准的 Markdown，可调用此接口，利用后台的大模型 (qwen3.6-plus) 智能转换为标准 Markdown。</p>
+            <p><strong>请求体 (JSON)：</strong></p>
+            <pre>
+{
+  "content": "帮我把这段话变成markdown格式标题是测试内容是今天天气不错"
+}
+            </pre>
+            <strong>响应示例：</strong>
+            <pre>
+{
+  "status": "success",
+  "data": "# 测试\n\n今天天气不错。"
+}
+            </pre>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

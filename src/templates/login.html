@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - TUZHAN 协作中心</title>
+    <!-- [修改原因] 引入全站统一 favicon -->
+    <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+    <style>
+        :root {
+            --brand-orange: #FF6B01;
+            --brand-orange-hover: #e56000;
+            --brand-dark: #4B4B4B;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #888888;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .login-box {
+            background: var(--card-bg);
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        .logo-container {
+            margin-bottom: 20px;
+        }
+
+        .logo-container img {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(255, 107, 1, 0.2);
+        }
+
+        .login-box h1 {
+            margin: 0 0 10px 0;
+            color: var(--brand-dark);
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .login-box p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 15px;
+        }
+
+        .error-msg {
+            background-color: #ffebee;
+            color: #dc3545;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--brand-dark);
+            font-weight: 600;
+        }
+
+        input[type="password"], input[type="text"] {
+            width: 100%;
+            padding: 14px 15px;
+            border: 2px solid #eaeaea;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+            background-color: #fafafa;
+        }
+
+        input[type="password"]:focus, input[type="text"]:focus {
+            border-color: var(--brand-orange);
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(255, 107, 1, 0.1);
+        }
+
+        button {
+            background-color: var(--brand-orange);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--brand-orange-hover);
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <!-- 引入刚刚设计的 SVG Logo -->
+    <div class="logo-container">
+        <img src="/static/logo.svg" alt="TUZHAN Logo">
+    </div>
+    
+    <h1>TUZHAN 协作中心</h1>
+    <p>请输入您的专属密钥进入工作台</p>
+    
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+    
+    <form action="/login" method="post">
+        <div class="input-group">
+            <label for="private_key">Private Key (密钥)</label>
+            <!-- [修改原因]: 改为仅需要输入 Private Key，不需要用户名 -->
+            <input type="password" id="private_key" name="private_key" placeholder="如: sk-alice-xxxxx" required autofocus autocomplete="off">
+        </div>
+        <button type="submit">进入系统</button>
+    </form>
+</div>
+
+</body>
+</html>

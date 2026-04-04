@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FF8A33;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#FF6B01;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <!-- 背景：带圆角的深灰色方块或者亮橙色。根据你的要求，我们用亮橙色做背景，白色文字，或者深灰色背景，亮橙色文字。这里采用亮橙色背景，白色TZ更显眼 -->
+    <rect width="100" height="100" rx="24" fill="url(#grad)" />
+    <!-- TZ 字母 -->
+    <text x="50" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="900" font-size="48" fill="#FFFFFF" text-anchor="middle" letter-spacing="-1">TZ</text>
+</svg>
