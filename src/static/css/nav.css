@@ -1,0 +1,127 @@
+/* ============================================
+   TUZHAN Shared Top Navigation
+   全局顶部导航栏
+   ============================================ */
+
+.tz-topnav {
+    background: var(--tz-bg-nav);
+    color: var(--tz-text-on-dark);
+    padding: 0 var(--tz-space-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* --- Left Section --- */
+.tz-topnav__left {
+    display: flex;
+    align-items: center;
+    gap: var(--tz-space-xl);
+}
+
+.tz-topnav__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--tz-text-on-dark);
+    flex-shrink: 0;
+}
+
+.tz-topnav__logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.tz-topnav__title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.8));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* --- Nav Links --- */
+.tz-topnav__links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tz-topnav__link {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tz-text-on-dark-muted);
+    text-decoration: none;
+    border-radius: var(--tz-radius-sm);
+    transition: all var(--tz-transition-fast);
+    position: relative;
+}
+
+.tz-topnav__link:hover {
+    color: var(--tz-text-on-dark);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.tz-topnav__link.active {
+    color: var(--tz-primary);
+    background: rgba(255, 107, 1, 0.12);
+}
+
+/* --- Right Section --- */
+.tz-topnav__right {
+    display: flex;
+    align-items: center;
+    gap: var(--tz-space-md);
+}
+
+.tz-topnav__user {
+    font-size: 13px;
+    color: var(--tz-text-on-dark-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tz-topnav__user-name {
+    color: var(--tz-primary);
+    font-weight: 600;
+}
+
+.tz-topnav__user-id {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.tz-topnav__logout {
+    font-size: 12px;
+    color: var(--tz-text-on-dark-muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: var(--tz-radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all var(--tz-transition-fast);
+}
+
+.tz-topnav__logout:hover {
+    color: #fff;
+    border-color: var(--tz-primary);
+    background: rgba(255, 107, 1, 0.15);
+}
+
+/* --- Separator dot between nav items --- */
+.tz-topnav__sep {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+}

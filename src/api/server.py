@@ -156,12 +156,14 @@ async def dashboard(request: Request, emp_id: str = Cookie(None), private_key: s
     messages = message_manager.get_inbox_messages(emp_id)
     sent_messages = message_manager.get_outbox_messages(emp_id)
     return templates.TemplateResponse("dashboard.html", {
-        "request": request, 
+        "request": request,
         "current_emp_id": emp_id,
         "user_info": user_info,
         "projects": projects,
         "messages": messages,
-        "sent_messages": sent_messages
+        "sent_messages": sent_messages,
+        "active_page": "dashboard",
+        "is_admin": user_info.get("is_admin", False) if user_info else False,
     })
 
 @app.get("/admin/login", response_class=HTMLResponse)
@@ -234,13 +236,15 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
     }
     
     return templates.TemplateResponse("admin_dashboard.html", {
-        "request": request, 
+        "request": request,
         "current_emp_id": emp_id,
         "user_info": user_info,
         "all_users": all_users,
         "all_messages": all_messages,
         "system_config": system_config,
-        "org_projects": org_projects
+        "org_projects": org_projects,
+        "active_page": "admin",
+        "is_admin": True,
     })
 
 import uuid
@@ -663,7 +667,7 @@ async def sent_messages(authorization: str = Header(None)):
 from typing import Optional
 
 @app.get("/api")
-async def api_docs(request: Request, format: Optional[str] = None):
+async def api_docs(request: Request, format: Optional[str] = None, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
     """
     [新增原因]: 返回 API 接口文档页面，供所有员工学习如何使用接口与其他同事协作。
     支持通过 format=markdown 参数返回纯 Markdown 格式的文档，供 AI Agent 直接读取。
@@ -677,5 +681,21 @@ async def api_docs(request: Request, format: Optional[str] = None):
         except Exception as e:
             logger.error(f"读取 Markdown API 文档失败: {e}")
             return Response(content="Markdown 文档加载失败", media_type="text/plain", status_code=500)
-            
-    return templates.TemplateResponse("api_docs.html", {"request": request, "base_url": request.base_url})
+
+    # 尝试获取用户信息以显示共享导航栏
+    user_info = None
+    current_emp_id = None
+    is_admin = False
+    if _verify_session(emp_id, private_key):
+        current_emp_id = emp_id
+        user_info = db_manager.get_user_info(emp_id)
+        is_admin = user_info.get("is_admin", False) if user_info else False
+
+    return templates.TemplateResponse("api_docs.html", {
+        "request": request,
+        "base_url": request.base_url,
+        "current_emp_id": current_emp_id,
+        "user_info": user_info,
+        "active_page": "api_docs",
+        "is_admin": is_admin,
+    })

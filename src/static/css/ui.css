@@ -1,6 +1,6 @@
-/* src/static/css/ui.css */
+/* src/static/css/ui.css — Toast & Confirm Modal */
 
-/* Toast Notification Styles */
+/* Toast Notification */
 .tz-toast-container {
     position: fixed;
     top: 20px;
@@ -13,21 +13,22 @@
 
 .tz-toast {
     padding: 12px 20px;
-    border-radius: 8px;
+    border-radius: var(--tz-radius-md, 8px);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: var(--tz-shadow-md, 0 4px 16px rgba(0,0,0,0.12));
     animation: toastIn 0.3s ease;
     display: flex;
     align-items: center;
-    font-size: 14px;
+    font-size: 13px;
+    font-family: var(--tz-font-sans, inherit);
     min-width: 250px;
     max-width: 400px;
     word-break: break-all;
 }
 
-.tz-toast.success { background-color: #28a745; }
-.tz-toast.error { background-color: #dc3545; }
-.tz-toast.info { background-color: #4B4B4B; }
+.tz-toast.success { background: var(--tz-success, #22C55E); }
+.tz-toast.error { background: var(--tz-error, #EF4444); }
+.tz-toast.info { background: var(--tz-gray-700, #2C3044); }
 
 @keyframes toastIn {
     from { transform: translateX(100%); opacity: 0; }
@@ -39,33 +40,38 @@
     to { transform: translateX(120%); opacity: 0; }
 }
 
-/* Confirm Modal Styles */
+/* Confirm Modal */
 .tz-confirm-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(12, 14, 20, 0.6);
     z-index: 10000;
     display: none;
     justify-content: center;
     align-items: center;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
 }
 
 .tz-confirm-box {
-    background: #fff;
+    background: var(--tz-bg-card, #fff);
     width: 400px;
     max-width: 90vw;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    animation: modalFadeIn 0.2s ease;
+    border-radius: var(--tz-radius-xl, 16px);
+    padding: 24px;
+    box-shadow: var(--tz-shadow-lg, 0 8px 32px rgba(0,0,0,0.12));
+    animation: tz-modal-in 0.2s ease;
+}
+
+@keyframes tz-modal-in {
+    from { opacity: 0; transform: translateY(-16px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .tz-confirm-msg {
-    margin-bottom: 25px;
-    font-size: 15px;
-    color: #333;
-    line-height: 1.5;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: var(--tz-text-primary, #141620);
+    line-height: 1.6;
     white-space: pre-wrap;
 }
 
@@ -76,23 +82,33 @@
 }
 
 .tz-btn {
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 8px 18px;
+    border-radius: var(--tz-radius-md, 8px);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
+    font-family: var(--tz-font-sans, inherit);
     border: none;
     outline: none;
+    transition: all 150ms ease;
 }
 
 .tz-btn-cancel {
-    background: #fff;
-    border: 1px solid #eaeaea;
-    color: #333;
+    background: var(--tz-bg-card, #fff);
+    border: 1.5px solid var(--tz-border, #E2E5F0);
+    color: var(--tz-text-secondary, #3E4259);
+}
+
+.tz-btn-cancel:hover {
+    border-color: var(--tz-gray-400, #8B90A5);
 }
 
 .tz-btn-ok {
-    background: #FF6B01;
+    background: linear-gradient(135deg, var(--tz-primary, #FF6B01), #FF8A33);
     color: #fff;
+    box-shadow: 0 2px 8px var(--tz-primary-glow, rgba(255, 107, 1, 0.2));
 }
-.tz-btn-ok:hover { background: #e56000; }
+
+.tz-btn-ok:hover {
+    background: linear-gradient(135deg, var(--tz-primary-hover, #E55E00), var(--tz-primary, #FF6B01));
+}

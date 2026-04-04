@@ -1,0 +1,85 @@
+/* ============================================
+   TUZHAN Design Tokens
+   AI Agent 协作平台 — 全局设计变量
+   ============================================ */
+
+:root {
+    /* ---- Brand Core ---- */
+    --tz-primary: #FF6B01;
+    --tz-primary-hover: #E55E00;
+    --tz-primary-light: rgba(255, 107, 1, 0.10);
+    --tz-primary-glow: rgba(255, 107, 1, 0.20);
+    --tz-primary-border: rgba(255, 107, 1, 0.30);
+
+    /* ---- Neutral Scale (cool-tinted) ---- */
+    --tz-gray-950: #0C0E14;
+    --tz-gray-900: #141620;
+    --tz-gray-800: #1E2130;
+    --tz-gray-700: #2C3044;
+    --tz-gray-600: #3E4259;
+    --tz-gray-500: #5A5F76;
+    --tz-gray-400: #8B90A5;
+    --tz-gray-300: #B0B5C9;
+    --tz-gray-200: #D5D9E8;
+    --tz-gray-100: #EBEEF7;
+    --tz-gray-50:  #F4F6FC;
+
+    /* ---- Semantic Colors ---- */
+    --tz-success: #22C55E;
+    --tz-success-light: rgba(34, 197, 94, 0.12);
+    --tz-error: #EF4444;
+    --tz-error-light: rgba(239, 68, 68, 0.10);
+    --tz-warning: #F59E0B;
+    --tz-warning-light: rgba(245, 158, 11, 0.10);
+    --tz-info: #3B82F6;
+    --tz-info-light: rgba(59, 130, 246, 0.10);
+
+    /* ---- Surface & Layout ---- */
+    --tz-bg-page: #F0F2F8;
+    --tz-bg-card: #FFFFFF;
+    --tz-bg-card-hover: #FAFBFF;
+    --tz-bg-nav: #0C0E14;
+    --tz-bg-input: #F7F8FC;
+    --tz-bg-code: #1E2130;
+    --tz-border: #E2E5F0;
+    --tz-border-light: #EBEEF7;
+
+    /* ---- Typography ---- */
+    --tz-text-primary: #141620;
+    --tz-text-secondary: #3E4259;
+    --tz-text-muted: #8B90A5;
+    --tz-text-on-dark: #EBEEF7;
+    --tz-text-on-dark-muted: rgba(235, 238, 247, 0.6);
+    --tz-text-code: #F8F8F2;
+
+    /* ---- Spacing ---- */
+    --tz-space-xs: 4px;
+    --tz-space-sm: 8px;
+    --tz-space-md: 16px;
+    --tz-space-lg: 24px;
+    --tz-space-xl: 32px;
+    --tz-space-2xl: 48px;
+    --tz-space-3xl: 64px;
+
+    /* ---- Radius ---- */
+    --tz-radius-sm: 6px;
+    --tz-radius-md: 8px;
+    --tz-radius-lg: 12px;
+    --tz-radius-xl: 16px;
+    --tz-radius-full: 9999px;
+
+    /* ---- Shadows ---- */
+    --tz-shadow-sm: 0 1px 3px rgba(12, 14, 20, 0.06);
+    --tz-shadow-md: 0 4px 16px rgba(12, 14, 20, 0.08);
+    --tz-shadow-lg: 0 8px 32px rgba(12, 14, 20, 0.12);
+    --tz-shadow-glow: 0 0 20px rgba(255, 107, 1, 0.15);
+
+    /* ---- Font Stacks ---- */
+    --tz-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --tz-font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Courier New', monospace;
+
+    /* ---- Transitions ---- */
+    --tz-transition-fast: 150ms ease;
+    --tz-transition-base: 250ms ease;
+    --tz-transition-slow: 400ms ease;
+}
