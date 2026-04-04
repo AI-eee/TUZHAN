@@ -566,17 +566,42 @@
         }
     });
 
-    // [新增原因]: 复制个人的 Private Key
+    // [修改原因]: 增加非安全环境（HTTP）下的 fallback 复制机制，解决 clipboard undefined 报错
     function copyMyKey() {
         const keyInput = document.getElementById('my-private-key');
         if (!keyInput || !keyInput.value) return;
         
-        navigator.clipboard.writeText(keyInput.value).then(() => {
-            TZUI.toast('身份凭证已成功复制！', 'success');
-        }).catch(err => {
-            console.error('复制失败:', err);
-            TZUI.toast('复制失败，请手动选择复制。', 'error');
-        });
+        const keyText = keyInput.value;
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(keyText).then(() => {
+                TZUI.toast('身份凭证已成功复制！', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                TZUI.toast('复制失败，请手动选择复制。', 'error');
+            });
+        } else {
+            // fallback for non-secure contexts (like HTTP)
+            const textArea = document.createElement("textarea");
+            textArea.value = keyText;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    TZUI.toast('身份凭证已成功复制！', 'success');
+                } else {
+                    TZUI.toast('复制失败，请手动选择复制。', 'error');
+                }
+            } catch (err) {
+                console.error('Fallback复制失败:', err);
+                TZUI.toast('复制失败，请手动选择复制。', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
     }
 
     const actionBtn = document.getElementById('action-btn');
