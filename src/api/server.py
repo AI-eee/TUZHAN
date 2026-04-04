@@ -64,12 +64,28 @@ else:
 db_manager = DatabaseManager(db_path)
 message_manager = MessageManager(db_manager)
 
+# [修改原因]: 统一的会话校验函数，防止 Cookie 伪造绕过认证 (BUG-01 修复)
+def _verify_session(emp_id: str, private_key: str) -> str | None:
+    """
+    校验 Cookie 中的 private_key 是否与 emp_id 匹配。
+    返回验证通过的 emp_id，否则返回 None。
+    """
+    if not emp_id or not private_key:
+        return None
+    verified_emp_id = db_manager.get_user_by_key(private_key, active_only=False)
+    if not verified_emp_id or verified_emp_id != emp_id:
+        return None
+    return verified_emp_id
+
+# [修改原因]: Cookie 安全属性常量，防止 XSS/CSRF 窃取凭证 (BUG-02 修复)
+COOKIE_OPTS = {"httponly": True, "samesite": "Lax"}
+
 # ----------------- WEB UI 路由 -----------------
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, emp_id: str = Cookie(None)):
-    """Web 入口：如果登录过直接进工作台，否则进登录页"""
-    if emp_id:
+async def index(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """Web 入口：如果登录过且会话有效则进工作台，否则进登录页"""
+    if _verify_session(emp_id, private_key):
         return RedirectResponse(url="/dashboard", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request})
 
@@ -93,8 +109,8 @@ async def login(request: Request, private_key: str = Form(...)):
         })
         
     response = RedirectResponse(url="/dashboard", status_code=303)
-    response.set_cookie(key="emp_id", value=emp_id)
-    response.set_cookie(key="private_key", value=private_key)
+    response.set_cookie(key="emp_id", value=emp_id, **COOKIE_OPTS)
+    response.set_cookie(key="private_key", value=private_key, **COOKIE_OPTS)
     return response
 
 @app.get("/logout")
@@ -108,11 +124,11 @@ async def logout():
 import json
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request, emp_id: str = Cookie(None)):
+async def dashboard(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
     """用户控制台"""
-    if not emp_id:
+    if not _verify_session(emp_id, private_key):
         return RedirectResponse(url="/", status_code=303)
-    
+
     user_info = db_manager.get_user_info(emp_id)
     projects = []
     if user_info and user_info.get("projects"):
@@ -133,9 +149,9 @@ async def dashboard(request: Request, emp_id: str = Cookie(None)):
     })
 
 @app.get("/admin/login", response_class=HTMLResponse)
-async def admin_login_page(request: Request, emp_id: str = Cookie(None), admin_logged_in: str = Cookie(None)):
+async def admin_login_page(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None), admin_logged_in: str = Cookie(None)):
     """[新增原因]: 单独的管理员登录页面"""
-    if admin_logged_in == "true":
+    if admin_logged_in == "true" and _verify_session(emp_id, private_key):
         return RedirectResponse(url="/admin/dashboard", status_code=303)
     return templates.TemplateResponse("admin_login.html", {"request": request})
 
@@ -158,19 +174,20 @@ async def admin_login(request: Request, private_key: str = Form(...)):
         })
         
     response = RedirectResponse(url="/admin/dashboard", status_code=303)
-    response.set_cookie(key="emp_id", value=emp_id)
-    response.set_cookie(key="private_key", value=private_key)
-    response.set_cookie(key="admin_logged_in", value="true")
+    response.set_cookie(key="emp_id", value=emp_id, **COOKIE_OPTS)
+    response.set_cookie(key="private_key", value=private_key, **COOKIE_OPTS)
+    response.set_cookie(key="admin_logged_in", value="true", **COOKIE_OPTS)
     return response
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(request: Request, emp_id: str = Cookie(None), admin_logged_in: str = Cookie(None)):
+async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_key: str = Cookie(None), admin_logged_in: str = Cookie(None)):
     """
     [新增原因]: 管理员后台，仅允许 TZzhjiac 的用户访问，且必须经过 /admin/login 登录。
+    [修改原因]: 管理员后台，必须通过 private_key 校验会话真实性，防止 Cookie 伪造绕过 (BUG-01 修复)。
     """
-    if not emp_id or admin_logged_in != "true":
+    if not _verify_session(emp_id, private_key) or admin_logged_in != "true":
         return RedirectResponse(url="/admin/login", status_code=303)
-        
+
     user_info = db_manager.get_user_info(emp_id)
     if not user_info or user_info.get("emp_id") != "TZzhjiac":
         # 如果不是管理员，强制踢回普通控制台或提示无权限
