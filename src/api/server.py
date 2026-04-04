@@ -67,17 +67,31 @@ db_manager = DatabaseManager(db_path)
 message_manager = MessageManager(db_manager)
 
 # [修改原因]: 统一的会话校验函数，防止 Cookie 伪造绕过认证 (BUG-01 修复)
+# [修改原因]: 将 active_only 改为 True，已禁用用户的会话立即失效 (BUG-17 修复)
 def _verify_session(emp_id: str, private_key: str) -> str | None:
     """
-    校验 Cookie 中的 private_key 是否与 emp_id 匹配。
+    校验 Cookie 中的 private_key 是否与 emp_id 匹配，且用户状态为 active。
     返回验证通过的 emp_id，否则返回 None。
     """
     if not emp_id or not private_key:
         return None
-    verified_emp_id = db_manager.get_user_by_key(private_key, active_only=False)
+    verified_emp_id = db_manager.get_user_by_key(private_key, active_only=True)
     if not verified_emp_id or verified_emp_id != emp_id:
         return None
     return verified_emp_id
+
+# [新增原因]: 统一的管理员权限校验函数，同时验证 session 和 is_admin (BUG-16 修复)
+def _require_admin(emp_id: str, private_key: str):
+    """
+    校验当前请求是否来自合法的管理员。
+    同时验证 private_key 与 emp_id 的匹配关系，以及 is_admin 字段。
+    校验失败时直接抛出 HTTPException。
+    """
+    if not _verify_session(emp_id, private_key):
+        raise HTTPException(status_code=401, detail="未授权：会话无效或已过期")
+    user_info = db_manager.get_user_info(emp_id)
+    if not user_info or not user_info.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Access Denied: You are not the administrator.")
 
 # [修改原因]: Cookie 安全属性常量，防止 XSS/CSRF 窃取凭证 (BUG-02 修复)
 COOKIE_OPTS = {"httponly": True, "samesite": "Lax"}
@@ -233,14 +247,9 @@ import uuid
 import secrets
 
 @app.post("/admin/users/{target_emp_id}/regenerate-key")
-async def regenerate_user_key(target_emp_id: str, emp_id: str = Cookie(None)):
-    """[修改原因]: 允许管理员为员工重新生成 Private Key"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied: You are not the administrator.")
+async def regenerate_user_key(target_emp_id: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[修改原因]: 允许管理员为员工重新生成 Private Key。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     # 查找被修改用户
     target_users = db_manager.get_all_users()
@@ -262,14 +271,9 @@ class IdentityRequest(BaseModel):
     identity_md: str
 
 @app.post("/admin/users/{target_emp_id}/identity")
-async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 允许管理员更新员工身份设定的 Markdown"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 允许管理员更新员工身份设定的 Markdown。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     success = db_manager.update_user_identity(target_emp_id, req.identity_md)
     if success:
@@ -281,14 +285,9 @@ class StatusRequest(BaseModel):
     status: str
 
 @app.post("/admin/users/{target_emp_id}/status")
-async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 允许管理员启用/禁用员工"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 允许管理员启用/禁用员工。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     if req.status not in ["active", "disabled"]:
         raise HTTPException(status_code=400, detail="Invalid status")
@@ -308,13 +307,9 @@ class ProjectCreateRequest(BaseModel):
     description: str
 
 @app.post("/admin/projects")
-async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 增加新项目到数据库"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 增加新项目到数据库。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     success = db_manager.add_project(req.name, req.description)
     if not success:
@@ -327,13 +322,9 @@ class MemberCreateRequest(BaseModel):
     role: str
 
 @app.post("/admin/projects/{project_name}/members")
-async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id: str = Cookie(None)):
-    """[修改原因]: 向项目批量添加新成员（从库中选择）"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[修改原因]: 向项目批量添加新成员（从库中选择）。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     if not req.emp_ids:
         raise HTTPException(status_code=400, detail="至少需要选择一个成员")
@@ -353,13 +344,9 @@ class ProjectDescRequest(BaseModel):
     description: str
 
 @app.post("/admin/projects/{project_name}/description")
-async def update_project_description(project_name: str, req: ProjectDescRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 允许管理员双击修改项目说明并保存到数据库"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def update_project_description(project_name: str, req: ProjectDescRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 允许管理员双击修改项目说明并保存到数据库。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     success = db_manager.update_project_description(project_name, req.description)
     if not success:
@@ -369,13 +356,9 @@ async def update_project_description(project_name: str, req: ProjectDescRequest,
     return {"status": "success"}
 
 @app.delete("/admin/projects/{project_name}/members/{target_emp_id}")
-async def remove_project_member(project_name: str, target_emp_id: str, emp_id: str = Cookie(None)):
-    """[新增原因]: 从项目中移除成员"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def remove_project_member(project_name: str, target_emp_id: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 从项目中移除成员。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     success = db_manager.remove_project_member(project_name, target_emp_id)
     if not success:
@@ -388,13 +371,9 @@ class MemberRoleUpdateRequest(BaseModel):
     role: str
 
 @app.post("/admin/projects/{project_name}/members/{target_emp_id}/role")
-async def update_project_member_role(project_name: str, target_emp_id: str, req: MemberRoleUpdateRequest, emp_id: str = Cookie(None)):
-    """[新增原因]: 允许管理员编辑项目成员的角色"""
-    if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def update_project_member_role(project_name: str, target_emp_id: str, req: MemberRoleUpdateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 允许管理员编辑项目成员的角色。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     success = db_manager.update_project_member_role(project_name, target_emp_id, req.role)
     if not success:
@@ -407,13 +386,9 @@ class LLMKeyRequest(BaseModel):
     llm_api_key: str
 
 @app.post("/admin/config/llm-key")
-async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), admin_logged_in: str = Cookie(None)):
-    """[新增原因]: 允许管理员更新 LLM_API_KEY"""
-    if not emp_id or admin_logged_in != "true":
-        raise HTTPException(status_code=401, detail="未授权")
-    user_info = db_manager.get_user_info(emp_id)
-    if not user_info or not user_info.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Access Denied")
+async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+    """[新增原因]: 允许管理员更新 LLM_API_KEY。增加 private_key 会话校验 (BUG-16 修复)"""
+    _require_admin(emp_id, private_key)
         
     env_file = os.path.join(current_dir, '..', '..', '.env')
     lines = []
