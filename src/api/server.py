@@ -499,19 +499,19 @@ async def update_profile(
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
 
-@app.get("/api/workspace.py")
-async def download_workspace_script():
+@app.get("/api/tuzhan_workspace_skill.zip")
+async def download_workspace_skill():
     """
-    [新增原因]: 允许用户或 AI Agent 快速下载重构并通用化的 workspace.py 脚本
+    [新增原因]: 允许用户或 AI Agent 快速下载重构并通用化的 workspace skill 压缩包
     便于快速调度本地 API 进行测试或集成。
     """
-    script_path = os.path.join(current_dir, "..", "..", "scripts", "workspace.py")
+    script_path = os.path.join(current_dir, "..", "..", "scripts", "tuzhan_workspace_skill.zip")
     if not os.path.exists(script_path):
-        raise HTTPException(status_code=404, detail="workspace.py not found.")
+        raise HTTPException(status_code=404, detail="tuzhan_workspace_skill.zip not found.")
     return FileResponse(
         path=script_path, 
-        filename="workspace.py",
-        media_type="text/x-python"
+        filename="tuzhan_workspace_skill.zip",
+        media_type="application/zip"
     )
 
 from fastapi import Header

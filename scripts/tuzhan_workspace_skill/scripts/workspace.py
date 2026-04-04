@@ -3,6 +3,7 @@ import sys
 import urllib.request
 import urllib.error
 import json
+import argparse
 
 # ================= 配置区 =================
 # 你可以通过环境变量设置，也可以直接在这里修改默认值
@@ -32,41 +33,40 @@ def request(endpoint, method="GET", data=None):
         print(f"Error for {url}: {e}")
         return None
 
-def main():
-    if not API_KEY:
-        print("错误: 未配置 API_KEY！")
-        print("请在脚本中直接修改 API_KEY，或者通过环境变量 TUZHAN_API_KEY 传入。")
-        print("示例: export TUZHAN_API_KEY='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'")
-        sys.exit(1)
-
-    print(f"正在使用工作区: {WORKSPACE_DIR}")
-    print("1. 获取全公司项目和同事名单 (/projects) ...")
+def list_projects():
+    print("正在拉取当前项目和同事名单 (/projects) ...")
     projects = request("/projects")
     if not projects or projects.get("status") != "success":
         print("获取失败，请检查 API Key 或网络连通性。")
         return
         
-    print("获取成功。")
-    
-    target_emp_id = None
-    if projects.get("data"):
-        for proj in projects["data"]:
-            if proj.get("members"):
-                target_emp_id = proj["members"][0]["emp_id"]
-                break
-                
-    if target_emp_id:
-        # print(f"\n2. 发送测试消息给 {target_emp_id} (/messages/send) ...")
-        # send_payload = json.dumps({
-        #     "receiver": target_emp_id,
-        #     "content": "# 测试消息\n\n这是一条通过 Python 脚本自动发送的 API 测试消息。"
-        # }).encode("utf-8")
-        # send_res = request("/messages/send", method="POST", data=send_payload)
-        # print("发送成功。" if send_res and send_res.get("status") == "success" else "发送失败。")
-        pass
-    else:
-        print("\n未找到任何同事。")
+    print("\n========== 当前参与的项目及同事名单 ==========")
+    for proj in projects.get("data", []):
+        print(f"\n项目名称: {proj.get('name')}")
+        for member in proj.get('members', []):
+            print(f" - 姓名/昵称: {member.get('nickname')}, 角色: {member.get('role')}, 工号(emp_id): {member.get('emp_id')}")
+    print("\n==============================================")
 
+def send_message(target_emp_id, content):
+    if not target_emp_id or not content:
+        print("发送失败：目标工号和消息内容不能为空。")
+        return
+
+    print(f"正在准备向 {target_emp_id} 发送消息...")
+    payload = json.dumps({
+        "receiver": target_emp_id,
+        "content": content
+    }).encode("utf-8")
+    
+    send_resp = request("/messages/send", method="POST", data=payload)
+    if send_resp and send_resp.get("status") == "success":
+        print(f"消息已成功发送给 {target_emp_id}！")
+    else:
+        print(f"消息发送失败: {send_resp}")
+
+def sync_inbox_outbox():
+    print(f"正在使用工作区: {WORKSPACE_DIR}")
+    
     inbox_dir = os.path.join(WORKSPACE_DIR, "inbox")
     outbox_dir = os.path.join(WORKSPACE_DIR, "outbox")
     
@@ -74,7 +74,7 @@ def main():
     os.makedirs(inbox_dir, exist_ok=True)
     os.makedirs(outbox_dir, exist_ok=True)
 
-    print(f"\n3. 检查发件箱 (/messages/sent) 并保存到本地 {outbox_dir} ...")
+    print(f"\n1. 检查发件箱 (/messages/sent) 并保存到本地 {outbox_dir} ...")
     sent = request("/messages/sent")
     if sent and sent.get("status") == "success":
         count = 0
@@ -92,7 +92,7 @@ def main():
     else:
         print("拉取发件箱失败")
     
-    print(f"\n4. 检查收件箱 (/messages/receive) 并保存到本地 {inbox_dir} ...")
+    print(f"\n2. 检查收件箱 (/messages/receive) 并保存到本地 {inbox_dir} ...")
     received = request("/messages/receive")
     if received and received.get("status") == "success":
         count = 0
@@ -109,6 +109,32 @@ def main():
         print(f"已将 {count} 条新的收件箱消息保存到 {inbox_dir}")
     else:
         print("拉取收件箱失败")
+
+def main():
+    if not API_KEY:
+        print("错误: 未配置 API_KEY！")
+        print("请在脚本中直接修改 API_KEY，或者通过环境变量 TUZHAN_API_KEY 传入。")
+        print("示例: export TUZHAN_API_KEY='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'")
+        sys.exit(1)
+
+    parser = argparse.ArgumentParser(description="TUZHAN 协作中心命令行工具")
+    parser.add_argument("--list", action="store_true", help="拉取并查看当前项目和同事名单")
+    parser.add_argument("--send", action="store_true", help="发送消息")
+    parser.add_argument("--target_emp_id", type=str, help="目标同事的工号 (发送消息时必填)")
+    parser.add_argument("--content", type=str, help="Markdown 格式的消息正文 (发送消息时必填)")
+    
+    args = parser.parse_args()
+
+    if args.list:
+        list_projects()
+    elif args.send:
+        if not args.target_emp_id or not args.content:
+            print("错误: 发送消息时必须提供 --target_emp_id 和 --content 参数。")
+            sys.exit(1)
+        send_message(args.target_emp_id, args.content)
+    else:
+        # 默认行为：同步收件箱和发件箱
+        sync_inbox_outbox()
 
 if __name__ == "__main__":
     main()
