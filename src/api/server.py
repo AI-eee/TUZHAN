@@ -342,8 +342,14 @@ class ProjectCreateRequest(BaseModel):
 
 @app.post("/admin/users")
 async def add_user(req: UserCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 支持管理员在控制台新增员工成员"""
+    """[新增原因]: 支持管理员在控制台新增员工成员。同时增加昵称唯一性校验，如果昵称已存在则拒绝创建。"""
     _require_admin(emp_id, private_key)
+    
+    # [新增原因]: 校验昵称唯一性（去除首尾空格）
+    req.nickname = req.nickname.strip()
+    existing = db_manager.get_user_by_nickname(req.nickname)
+    if existing:
+        return {"status": "error", "detail": "该昵称已被使用，请换一个以方便分辨"}
     
     import random
     import string
@@ -522,7 +528,8 @@ async def update_profile(
     if user_info and user_info.get("status") == "disabled":
         return {"status": "error", "detail": "账号已被禁用"}
         
-    if nickname:
+    if nickname is not None:
+        nickname = nickname.strip()
         existing = db_manager.get_user_by_nickname(nickname)
         if existing and existing["emp_id"] != emp_id:
             return {"status": "error", "detail": "该昵称已被使用，请换一个以方便分辨"}

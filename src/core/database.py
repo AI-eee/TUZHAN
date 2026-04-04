@@ -356,12 +356,13 @@ class DatabaseManager:
             return row["emp_id"] if row else None
 
     def get_user_by_nickname(self, nickname: str) -> Optional[dict]:
-        """[新增原因]：通过 nickname 获取用户，用于校验昵称唯一性"""
+        """[新增原因]：通过 nickname 获取用户，用于校验昵称唯一性（忽略大小写和首尾空格）"""
         if not nickname:
             return None
+        nickname = nickname.strip()
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE nickname = ?", (nickname,))
+            cursor.execute("SELECT * FROM users WHERE LOWER(nickname) = LOWER(?)", (nickname,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
