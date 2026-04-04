@@ -238,7 +238,12 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
         return RedirectResponse(url="/admin/login", status_code=303)
         
     all_users = db_manager.get_all_users()
-    all_messages = db_manager.get_all_messages()
+    
+    # [修改原因]: 不再在此处全量拉取消息，改为提供初始第一页数据及分页元信息，由前端 Ajax 接管
+    # 保持向后兼容或初始渲染，只拉取前 5 条
+    limit = 5
+    all_messages = db_manager.get_all_messages(limit=limit, offset=0)
+    total_messages_count = db_manager.get_messages_total_count()
     
     # 将 projects JSON 字符串反序列化供模板渲染
     for u in all_users:
@@ -268,11 +273,46 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
         "user_info": user_info,
         "all_users": all_users,
         "all_messages": all_messages,
+        "total_messages_count": total_messages_count,
+        "messages_per_page": limit,
         "system_config": system_config,
         "org_projects": org_projects,
         "active_page": "admin",
         "is_admin": True,
     })
+
+@app.get("/api/admin/messages", summary="管理后台获取全量消息分页数据")
+async def api_admin_messages(
+    page: int = Query(1, ge=1),
+    limit: int = Query(5, ge=1, le=100),
+    emp_id: str = Cookie(None),
+    private_key: str = Cookie(None),
+    admin_logged_in: str = Cookie(None)
+):
+    """
+    [新增原因]: 供管理员后台前端进行消息分页 Ajax 请求使用。
+    需提供严格的身份校验确保仅超管可访问。
+    """
+    if not _verify_session(emp_id, private_key) or admin_logged_in != "true":
+        raise HTTPException(status_code=401, detail="未授权")
+
+    user_info = db_manager.get_user_info(emp_id)
+    if not user_info or not user_info.get("is_admin"):
+        raise HTTPException(status_code=403, detail="无管理员权限")
+        
+    offset = (page - 1) * limit
+    messages = db_manager.get_all_messages(limit=limit, offset=offset)
+    total_count = db_manager.get_messages_total_count()
+    
+    return {
+        "status": "success",
+        "data": {
+            "messages": messages,
+            "total_count": total_count,
+            "page": page,
+            "limit": limit
+        }
+    }
 
 import uuid
 import secrets

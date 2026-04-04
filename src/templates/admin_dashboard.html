@@ -265,6 +265,37 @@
         accent-color: var(--tz-primary);
         margin-right: 6px;
     }
+
+    /* 分页控件样式 */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+    }
+    .page-btn {
+        padding: 4px 10px;
+        border: 1px solid var(--tz-border);
+        background: #fff;
+        color: var(--tz-text-primary);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+    .page-btn:hover:not(:disabled) {
+        border-color: var(--tz-primary);
+        color: var(--tz-primary);
+    }
+    .page-btn.active {
+        background: var(--tz-primary);
+        color: #fff;
+        border-color: var(--tz-primary);
+    }
+    .page-btn:disabled {
+        background: var(--tz-gray-100);
+        color: var(--tz-gray-400);
+        cursor: not-allowed;
+    }
 </style>
 {% endblock %}
 
@@ -330,9 +361,11 @@
                             </td>
                             <td style="color: var(--tz-text-muted); font-size: 12px;">{{ u.created_at }}</td>
                             <td>
-                                <button class="status-btn" id="status-btn-{{ u.emp_id }}" style="background: {% if u.status == 'disabled' %}var(--tz-gray-500){% else %}var(--tz-success){% endif %};" onclick="toggleStatus('{{ u.emp_id }}', this)">
-                                    {% if u.status == 'disabled' %}禁用{% else %}正常{% endif %}
-                                </button>
+                                {% if u.status == 'disabled' %}
+                                <button class="status-btn" id="status-btn-{{ u.emp_id }}" style="background: var(--tz-gray-500);" onclick="toggleStatus('{{ u.emp_id }}', this)">禁用</button>
+                                {% else %}
+                                <button class="status-btn" id="status-btn-{{ u.emp_id }}" style="background: var(--tz-success);" onclick="toggleStatus('{{ u.emp_id }}', this)">正常</button>
+                                {% endif %}
                             </td>
                             <td>
                                 <button class="action-btn-sm"
@@ -412,44 +445,53 @@
 
         <!-- Tab 3: Messages -->
         <div id="tab-messages" class="tz-tab-content">
-            <h2 style="margin: 0 0 16px 0; border: none; padding: 0;">全站消息流转审查 (Messages)</h2>
-            {% if all_messages|length == 0 %}
-                <div class="tz-empty-state">全站暂无任何消息流转</div>
-            {% else %}
-                <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th width="15%">时间</th>
-                            <th width="15%">发件人</th>
-                            <th width="15%">收件人</th>
-                            <th width="45%">Markdown 内容预览</th>
-                            <th width="10%">状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for msg in all_messages %}
-                        <tr>
-                            <td style="color: var(--tz-text-muted); font-size: 12px;">{{ msg.created_at }}</td>
-                            <td><strong>{{ msg.sender }}</strong></td>
-                            <td><strong>{{ msg.receiver }}</strong></td>
-                            <td>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; border: none; padding: 0;">全站消息流转审查 (Messages)</h2>
+                <div id="messages-pagination" class="pagination" style="margin: 0;"></div>
+            </div>
+            
+            <div style="overflow-x: auto;">
+            <table id="messages-table" {% if total_messages_count == 0 %}style="display: none;"{% endif %}>
+                <thead>
+                    <tr>
+                        <th width="15%">时间</th>
+                        <th width="15%">发件人</th>
+                        <th width="15%">收件人</th>
+                        <th width="45%">Markdown 内容预览</th>
+                        <th width="10%">状态</th>
+                    </tr>
+                </thead>
+                <tbody id="messages-list">
+                {% for msg in all_messages %}
+                    <tr class="message-row">
+                        <td style="color: var(--tz-text-muted); font-size: 12px;">{{ msg.created_at }}</td>
+                        <td><strong>{{ msg.sender }}</strong></td>
+                        <td><strong>{{ msg.receiver }}</strong></td>
+                        <td>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                                 <div class="msg-preview" title="{{ msg.content }}">{{ msg.content }}</div>
-                            </td>
-                            <td>
-                                {% if msg.status == 'unread' %}
-                                    <!-- [修改原因]: 文案调整，明确“未读”指的是“Agent待处理”，人类查看不会改变此状态 -->
-                                    <span style="color: var(--tz-primary); font-weight: 500;">Agent 待处理 (未读)</span>
-                                {% else %}
-                                    <span style="color: var(--tz-success); font-weight: 500;">Agent 已处理 (已读)</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-                </div>
-            {% endif %}
+                                <button class="action-btn-sm" onclick="viewMarkdownContent(this)">查看原文</button>
+                            </div>
+                            <textarea class="raw-md" style="display: none;">{{ msg.content }}</textarea>
+                        </td>
+                        <td>
+                            {% if msg.status == 'unread' %}
+                                <span style="color: var(--tz-primary); font-weight: 500;">Agent 待处理 (未读)</span>
+                            {% else %}
+                                <span style="color: var(--tz-success); font-weight: 500;">Agent 已处理 (已读)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            
+            <div id="messages-empty-state" class="tz-empty-state" {% if total_messages_count > 0 %}style="display: none;"{% endif %}>全站暂无任何消息流转</div>
+            
+            <!-- [新增原因]: 保存后端传递的初始分页信息 -->
+            <input type="hidden" id="messages-total-count" value="{{ total_messages_count }}">
+            <input type="hidden" id="messages-per-page" value="{{ messages_per_page }}">
         </div>
 
         <!-- Tab 4: Config -->
@@ -598,6 +640,22 @@
         <div class="modal-footer">
             <button class="tz-btn-ghost" onclick="closeIdentityModal()">取消</button>
             <button class="tz-btn-primary" style="padding: 8px 20px;" onclick="saveIdentity()">保存更改</button>
+        </div>
+    </div>
+</div>
+
+<!-- Markdown Preview Modal -->
+<div id="md-preview-modal" class="modal-overlay" onclick="closeMdPreviewModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()" style="width: 600px;">
+        <div class="modal-header">
+            <h3>Markdown 内容原文</h3>
+            <button class="modal-close" onclick="closeMdPreviewModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="md-preview-textarea" readonly style="width: 100%; height: 350px; padding: 14px; border: 1.5px solid var(--tz-border); border-radius: var(--tz-radius-md); font-family: var(--tz-font-mono); font-size: 13px; resize: vertical; box-sizing: border-box; background: var(--tz-bg-input); color: var(--tz-text-primary);"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="tz-btn-primary" onclick="closeMdPreviewModal()" style="padding: 8px 20px;">关闭</button>
         </div>
     </div>
 </div>
@@ -1003,9 +1061,117 @@
         }
     }
 
+    function loadMessagesPage(page) {
+        const limit = parseInt(document.getElementById('messages-per-page').value) || 5;
+        
+        fetch(`/api/admin/messages?page=${page}&limit=${limit}`)
+            .then(res => {
+                if (!res.ok) throw new Error('网络请求失败');
+                return res.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    renderMessagesTable(data.data.messages);
+                    renderPagination('messages-pagination', data.data.total_count, limit, page, loadMessagesPage);
+                } else {
+                    TZUI.toast('加载消息失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                TZUI.toast('加载消息失败，请检查网络', 'error');
+            });
+    }
+
+    function renderMessagesTable(messages) {
+        const tbody = document.getElementById('messages-list');
+        tbody.innerHTML = '';
+        
+        messages.forEach(msg => {
+            const tr = document.createElement('tr');
+            tr.className = 'message-row';
+            
+            const statusHtml = msg.status === 'unread' 
+                ? '<span style="color: var(--tz-primary); font-weight: 500;">Agent 待处理 (未读)</span>'
+                : '<span style="color: var(--tz-success); font-weight: 500;">Agent 已处理 (已读)</span>';
+                
+            tr.innerHTML = `
+                <td style="color: var(--tz-text-muted); font-size: 12px;">${msg.created_at}</td>
+                <td><strong>${msg.sender}</strong></td>
+                <td><strong>${msg.receiver}</strong></td>
+                <td>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div class="msg-preview" title="${msg.content.replace(/"/g, '&quot;')}">${msg.content}</div>
+                        <button class="action-btn-sm" onclick="viewMarkdownContent(this)">查看原文</button>
+                    </div>
+                    <textarea class="raw-md" style="display: none;">${msg.content}</textarea>
+                </td>
+                <td>${statusHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderPagination(paginationId, totalCount, limit, currentPage, onPageClick) {
+        const pagination = document.getElementById(paginationId);
+        if (!pagination) return;
+        
+        const totalPages = Math.ceil(totalCount / limit);
+        pagination.innerHTML = '';
+        
+        if (totalPages <= 1) return;
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-btn'; 
+        prevBtn.innerText = '上一页';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => onPageClick(currentPage - 1);
+        pagination.appendChild(prevBtn);
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (totalPages > 10 && i !== 1 && i !== totalPages && Math.abs(i - currentPage) > 2) {
+                if (i === 2 || i === totalPages - 1) {
+                    const span = document.createElement('span');
+                    span.innerText = '...'; span.style.padding = '6px';
+                    pagination.appendChild(span);
+                }
+                continue;
+            }
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+            btn.innerText = i;
+            btn.onclick = () => onPageClick(i);
+            pagination.appendChild(btn);
+        }
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-btn'; 
+        nextBtn.innerText = '下一页';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => onPageClick(currentPage + 1);
+        pagination.appendChild(nextBtn);
+    }
+
+    function viewMarkdownContent(btn) {
+        const tr = btn.closest('tr');
+        const rawMd = tr.querySelector('.raw-md').value;
+        document.getElementById('md-preview-textarea').value = rawMd;
+        document.getElementById('md-preview-modal').style.display = 'flex';
+    }
+
+    function closeMdPreviewModal(event) {
+        if (event && event.target !== event.currentTarget) return;
+        document.getElementById('md-preview-modal').style.display = 'none';
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         const hash = window.location.hash;
         if (hash && hash.startsWith('#tab-')) switchTab(hash.substring(1));
+        
+        // 初始渲染服务端直出的第一页分页控件
+        const totalCount = parseInt(document.getElementById('messages-total-count').value) || 0;
+        const limit = parseInt(document.getElementById('messages-per-page').value) || 5;
+        renderPagination('messages-pagination', totalCount, limit, 1, loadMessagesPage);
     });
 
     window.addEventListener('hashchange', () => {

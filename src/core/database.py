@@ -303,12 +303,23 @@ class DatabaseManager:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_all_messages(self) -> list:
-        """[新增原因]：为管理员后台获取全站所有的消息，用于全局审查"""
+    def get_all_messages(self, limit: Optional[int] = None, offset: Optional[int] = None) -> list:
+        """[修改原因]：为管理员后台获取全站所有的消息，增加分页支持以避免全量拉取卡顿"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM messages ORDER BY created_at DESC")
+            if limit is not None and offset is not None:
+                cursor.execute("SELECT * FROM messages ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
+            else:
+                cursor.execute("SELECT * FROM messages ORDER BY created_at DESC")
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_messages_total_count(self) -> int:
+        """[新增原因]：为管理员后台分页功能提供消息总数统计"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM messages")
+            row = cursor.fetchone()
+            return row["count"] if row else 0
 
     def mark_message_as_read(self, msg_id: str, receiver: str) -> bool:
         """[新增原因]：为 AI Agent 增加消息 ACK 确认机制，标记消息为已读"""
