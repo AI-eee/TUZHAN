@@ -1,64 +1,114 @@
 """
 TUZHAN 测试公共 Fixtures
 ========================
-所有测试共享的 pytest fixtures：测试数据库、TestClient、测试用户和项目。
-使用 FastAPI TestClient 进行测试，无需启动服务器。
+所有测试共享的 pytest fixtures：读取当前环境配置，连接真实数据库，打真实服务器。
+运行前请确保对应环境的服务器已启动（如 python -m src.main）。
+
+用法：
+    # 测试员工接口
+    python3 -m pytest tests/employee/ -v
+
+    # 测试管理员接口
+    python3 -m pytest tests/admin/ -v
+
+    # 全部测试
+    python3 -m pytest tests/employee/ tests/admin/ -v
 """
 import os
 import sys
 import json
-import tempfile
 import pytest
+import yaml
+import requests
+from dotenv import load_dotenv
 
-# 将 src 加入 sys.path
+# 将 src 加入 sys.path（用于直接 import database 模块来准备测试数据）
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src_dir = os.path.join(project_root, "src")
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-# 设置测试环境变量（必须在 import server 之前）
-os.environ["TUZHAN_ENV"] = "development"
-os.environ["LLM_API_KEY"] = "sk-test-llm-key-for-testing"
+# 加载 .env
+load_dotenv(os.path.join(project_root, ".env"))
+
+
+def _load_base_url():
+    """从 settings.yaml 读取当前环境的 client_base_url"""
+    env = os.getenv("TUZHAN_ENV", "development")
+    settings_path = os.path.join(project_root, "config", "settings.yaml")
+    with open(settings_path, "r", encoding="utf-8") as f:
+        settings = yaml.safe_load(f)
+    return settings.get(env, settings["development"]).get("client_base_url", "http://127.0.0.1:8888")
+
+
+def _load_db_path():
+    """从 settings.yaml 读取当前环境的数据库路径"""
+    env = os.getenv("TUZHAN_ENV", "development")
+    settings_path = os.path.join(project_root, "config", "settings.yaml")
+    with open(settings_path, "r", encoding="utf-8") as f:
+        settings = yaml.safe_load(f)
+    db_url = settings.get(env, settings["development"]).get("database_url", "sqlite:///./data/dev.sqlite")
+    db_path = db_url.replace("sqlite:///", "")
+    if db_path.startswith("./"):
+        db_path = os.path.join(project_root, db_path[2:])
+    return os.path.abspath(db_path)
+
+
+# ---------- Fixtures ----------
+
+@pytest.fixture(scope="session")
+def base_url():
+    """当前环境的服务器地址，如 http://127.0.0.1:8888"""
+    url = _load_base_url()
+    # 启动前先确认服务器可达
+    try:
+        requests.get(url, timeout=3)
+    except requests.ConnectionError:
+        pytest.exit(
+            f"\n\n❌ 无法连接到服务器 {url}\n"
+            f"   请先启动服务器: python -m src.main\n",
+            returncode=1,
+        )
+    return url
 
 
 @pytest.fixture(scope="session")
-def test_db_path():
-    """创建一个临时的测试数据库文件"""
-    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
-    tmp.close()
-    yield tmp.name
-    os.unlink(tmp.name)
+def api_url(base_url):
+    """API 前缀地址，如 http://127.0.0.1:8888/api"""
+    return f"{base_url}/api"
 
 
 @pytest.fixture(scope="session")
-def db_manager(test_db_path):
-    """初始化测试数据库"""
+def db_manager():
+    """连接当前环境的真实数据库"""
     from core.database import DatabaseManager
-    db = DatabaseManager(test_db_path)
-    return db
+    return DatabaseManager(_load_db_path())
 
 
 @pytest.fixture(scope="session")
 def setup_test_data(db_manager):
     """
-    填充测试数据：
-    - 普通员工 emp_user1 / emp_user2（属于同一项目，可互相通信）
-    - 无项目员工 emp_noproj（不属于任何项目）
-    - 被禁用员工 emp_disabled
-    - 管理员 emp_admin
+    在真实数据库中准备测试数据。
+    测试结束后自动清理。
+
+    创建的测试用户：
+    - user1 / user2: 普通员工，属于 _TestProject，可互相通信
+    - noproj: 无项目员工
+    - disabled: 被禁用员工
+    - admin: 管理员，属于 _TestProject
     """
     data = {
-        "user1_emp_id": "TZtestUser1",
-        "user1_key": "sk-testuser1key000000000000000001",
-        "user2_emp_id": "TZtestUser2",
-        "user2_key": "sk-testuser2key000000000000000002",
-        "noproj_emp_id": "TZnoProject",
-        "noproj_key": "sk-noprojectkey0000000000000003",
-        "disabled_emp_id": "TZdisabled1",
-        "disabled_key": "sk-disabledkey00000000000000004",
-        "admin_emp_id": "TZtestAdmin",
-        "admin_key": "sk-testadminkey0000000000000005",
-        "project_name": "TestProject",
+        "user1_emp_id": "TZ_test_u1",
+        "user1_key": "sk-testu1key00000000000000000001",
+        "user2_emp_id": "TZ_test_u2",
+        "user2_key": "sk-testu2key00000000000000000002",
+        "noproj_emp_id": "TZ_test_np",
+        "noproj_key": "sk-testnpkey00000000000000000003",
+        "disabled_emp_id": "TZ_test_ds",
+        "disabled_key": "sk-testdskey00000000000000000004",
+        "admin_emp_id": "TZ_test_ad",
+        "admin_key": "sk-testadkey00000000000000000005",
+        "project_name": "_TestProject",
     }
 
     # 创建用户
@@ -66,55 +116,42 @@ def setup_test_data(db_manager):
     db_manager.ensure_user_exists(data["user2_emp_id"], "测试员工2", "[]", data["user2_key"])
     db_manager.ensure_user_exists(data["noproj_emp_id"], "无项目员工", "[]", data["noproj_key"])
     db_manager.ensure_user_exists(data["disabled_emp_id"], "被禁用员工", "[]", data["disabled_key"])
-    db_manager.ensure_user_exists(data["admin_emp_id"], "管理员", "[]", data["admin_key"])
+    db_manager.ensure_user_exists(data["admin_emp_id"], "测试管理员", "[]", data["admin_key"])
 
-    # 禁用账号
+    # 设置状态
+    db_manager.update_user_status(data["user1_emp_id"], "active")
+    db_manager.update_user_status(data["user2_emp_id"], "active")
+    db_manager.update_user_status(data["noproj_emp_id"], "active")
     db_manager.update_user_status(data["disabled_emp_id"], "disabled")
-
-    # 设置管理员
+    db_manager.update_user_status(data["admin_emp_id"], "active")
     db_manager.set_user_admin_status(data["admin_emp_id"], True)
 
-    # 创建项目并添加成员
-    db_manager.add_project(data["project_name"], "用于自动化测试的项目")
+    # 创建测试项目并添加成员
+    db_manager.add_project(data["project_name"], "自动化测试专用项目（可安全删除）")
     db_manager.add_project_member(data["project_name"], data["user1_emp_id"], "Engineer")
     db_manager.add_project_member(data["project_name"], data["user2_emp_id"], "Engineer")
     db_manager.add_project_member(data["project_name"], data["admin_emp_id"], "Admin")
-
-    # 同步 projects JSON 到 users 表
     db_manager.sync_projects_to_users_json()
 
-    return data
+    yield data
+
+    # ---- 清理测试数据 ----
+    _cleanup_test_data(db_manager, data)
 
 
-def _cookie_header(cookies: dict) -> str:
-    """将 dict 转为 Cookie header 字符串"""
-    return "; ".join(f"{k}={v}" for k, v in cookies.items())
-
-
-@pytest.fixture(scope="session")
-def app(test_db_path, setup_test_data):
-    """配置好测试数据库的 FastAPI app 实��"""
-    from core.database import DatabaseManager
-    from core.message_manager import MessageManager
-
-    test_db = DatabaseManager(test_db_path)
-    test_mm = MessageManager(test_db)
-
-    import api.server as server_module
-    server_module.db_manager = test_db
-    server_module.message_manager = test_mm
-    return server_module.app
-
-
-@pytest.fixture(scope="session")
-def client(app):
-    """
-    创建 FastAPI TestClient，���入测试数据库。
-    follow_redirects=False 使得重定向测试可以正常断言。
-    """
-    from fastapi.testclient import TestClient
-    with TestClient(app, follow_redirects=False) as c:
-        yield c
+def _cleanup_test_data(db, data):
+    """清理所有以 TZ_test_ 开头的测试用户、_Test 开头的项目、以及相关消息"""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        # 清理消息
+        cursor.execute("DELETE FROM messages WHERE sender LIKE 'TZ_test_%' OR receiver LIKE 'TZ_test_%'")
+        # 清理项目成员
+        cursor.execute("DELETE FROM project_members WHERE project_name LIKE '_Test%'")
+        # 清理项目
+        cursor.execute("DELETE FROM projects WHERE name LIKE '_Test%'")
+        # 清理用户
+        cursor.execute("DELETE FROM users WHERE emp_id LIKE 'TZ_test_%' OR emp_id = 'TZtmpDisable'")
+        conn.commit()
 
 
 # ---- 便捷 fixtures ----
@@ -122,48 +159,41 @@ def client(app):
 @pytest.fixture(scope="session")
 def user1(setup_test_data):
     """普通员工1（有项目）"""
-    return {
-        "emp_id": setup_test_data["user1_emp_id"],
-        "key": setup_test_data["user1_key"],
-    }
+    return {"emp_id": setup_test_data["user1_emp_id"], "key": setup_test_data["user1_key"]}
 
 
 @pytest.fixture(scope="session")
 def user2(setup_test_data):
     """普通员工2（有项目）"""
-    return {
-        "emp_id": setup_test_data["user2_emp_id"],
-        "key": setup_test_data["user2_key"],
-    }
+    return {"emp_id": setup_test_data["user2_emp_id"], "key": setup_test_data["user2_key"]}
 
 
 @pytest.fixture(scope="session")
 def noproj_user(setup_test_data):
     """无项目员工"""
-    return {
-        "emp_id": setup_test_data["noproj_emp_id"],
-        "key": setup_test_data["noproj_key"],
-    }
+    return {"emp_id": setup_test_data["noproj_emp_id"], "key": setup_test_data["noproj_key"]}
 
 
 @pytest.fixture(scope="session")
 def disabled_user(setup_test_data):
     """被禁用员工"""
-    return {
-        "emp_id": setup_test_data["disabled_emp_id"],
-        "key": setup_test_data["disabled_key"],
-    }
+    return {"emp_id": setup_test_data["disabled_emp_id"], "key": setup_test_data["disabled_key"]}
 
 
 @pytest.fixture(scope="session")
 def admin_user(setup_test_data):
     """管理员"""
-    return {
-        "emp_id": setup_test_data["admin_emp_id"],
-        "key": setup_test_data["admin_key"],
-    }
+    return {"emp_id": setup_test_data["admin_emp_id"], "key": setup_test_data["admin_key"]}
 
 
 @pytest.fixture(scope="session")
 def project_name(setup_test_data):
     return setup_test_data["project_name"]
+
+
+@pytest.fixture(scope="session")
+def admin_session(base_url, admin_user):
+    """已登录的管理员 requests.Session（带 Cookie）"""
+    s = requests.Session()
+    s.post(f"{base_url}/admin/login", data={"private_key": admin_user["key"]}, allow_redirects=False)
+    return s
