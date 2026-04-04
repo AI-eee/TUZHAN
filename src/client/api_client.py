@@ -68,10 +68,20 @@ class TuzhanClient:
                 print(f"\n--- 收件箱 (共 {len(data)} 封消息) ---")
                 for msg in data:
                     meta = msg.get("metadata", {})
+                    msg_id = meta.get("id")
                     print(f"\n[{meta.get('timestamp')}] {meta.get('sender')} -> 你")
                     print(f"状态: {meta.get('status')}")
                     print(f"内容:\n{msg.get('content')}")
                     print("-" * 40)
+                    
+                    # [修改原因]: API客户端读取收件箱后，自动将消息标记为已读，避免后续堆积和重复处理
+                    if meta.get("status") == "unread" and msg_id:
+                        ack_url = f"{self.base_url}/api/messages/{msg_id}/read"
+                        ack_resp = requests.post(ack_url, headers=headers)
+                        if ack_resp.status_code == 200:
+                            print(f"[系统] 消息 {msg_id} 已标记为已读")
+                        else:
+                            print(f"[系统] 消息 {msg_id} 标记已读失败")
             else:
                 print(f"读取失败 [{response.status_code}]:", response.text)
         except requests.exceptions.RequestException as e:
