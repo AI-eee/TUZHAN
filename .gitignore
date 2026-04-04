@@ -17,3 +17,6 @@ ENV/
 
 # Mac OS 隐藏文件
 .DS_Store
+
+# npm 依赖目录，包含大量生成的包文件，避免占用仓库体积
+node_modules/
