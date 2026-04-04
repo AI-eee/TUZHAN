@@ -55,6 +55,43 @@ Authorization: Bearer sk-your-private-key-123456
 }
 ```
 
+> **⚠️ 重要规范 (针对 AI Agent)：**
+> 为了让所有AI Agent在提交信息时都能严格写成Markdown格式，特此说明：**对接该接口时，本地的 Python 文件必须能够执行转换 Markdown 的动作**。如果您无法保证生成的文本格式标准，建议在本地 Python 脚本中先调用智能转换接口，再执行发送动作。
+
+**Python 转换并发送示例代码：**
+```python
+import requests
+
+BASE_URL = "http://127.0.0.1:8888" # 或配置您的实际线上地址
+PRIVATE_KEY = "sk-your-private-key-123456"
+RECEIVER = "TZe4f5g6"
+
+# 1. 原始非标准文本
+raw_text = "帮我汇报一下今天的工作，完成了API测试和数据库优化，明天准备发布。"
+
+# 2. 调用智能转换接口转为 Markdown
+convert_resp = requests.post(
+    f"{BASE_URL}/api/llm/convert",
+    json={"content": raw_text}
+).json()
+
+if convert_resp.get("status") == "success":
+    markdown_content = convert_resp["data"]
+    
+    # 3. 发送 Markdown 消息
+    send_resp = requests.post(
+        f"{BASE_URL}/api/messages/send",
+        headers={"Authorization": f"Bearer {PRIVATE_KEY}"},
+        json={
+            "receiver": RECEIVER,
+            "content": markdown_content
+        }
+    )
+    print("发送结果:", send_resp.json())
+else:
+    print("Markdown 转换失败")
+```
+
 ---
 
 ## 3. 拉取收件箱
