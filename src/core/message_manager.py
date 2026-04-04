@@ -22,15 +22,23 @@ class MessageManager:
     def send_message(self, sender: str, receivers: list, content: str) -> list:
         """
         发送消息：将内容通过 DatabaseManager 入库。
-        支持传入多个 receiver (群发)，返回生成的消息 ID 列表
+        支持传入多个 receiver (群发)，返回生成的消息 ID 列表。
+        [修改原因]: 增加接收人校验，防止向不存在的用户发送消息 (BUG-05 修复)
         """
         msg_ids = []
+        invalid_receivers = []
         for receiver in receivers:
             receiver = receiver.strip()
             if not receiver:
                 continue
-                
-            msg_id = str(uuid.uuid4())[:8]
+
+            # 校验接收人是否存在于数据库中
+            receiver_info = self.db.get_user_info(receiver)
+            if not receiver_info:
+                invalid_receivers.append(receiver)
+                continue
+
+            msg_id = str(uuid.uuid4())
             
             # 将消息写入 SQLite 数据库的 messages 表
             self.db.save_message(
@@ -42,8 +50,11 @@ class MessageManager:
                 
             logger.info(f"消息 [{msg_id}] 已从 {sender} 发送至 {receiver} (存入SQLite数据库)")
             msg_ids.append(msg_id)
-            
-        return msg_ids
+
+        if invalid_receivers:
+            logger.warning(f"以下接收人不存在，已跳过: {invalid_receivers}")
+
+        return msg_ids, invalid_receivers
 
     def get_inbox_messages(self, receiver: str) -> list:
         """

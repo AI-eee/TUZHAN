@@ -25,56 +25,35 @@
 
 ## 高 (High)
 
-### BUG-03: 管理员权限硬编码，`is_admin` 字段形同虚设
+### BUG-03: 管理员权限硬编码，`is_admin` 字段形同虚设 — ✅ 已修复
 
-**文件**: `src/api/server.py:154, 175, 231, 260, 280, 339, 373, 428, 454, 489`
+**文件**: `src/api/server.py`
 
-**描述**: 所有管理员接口的权限判断都硬编码为：
-```python
-if not user_info or user_info.get("emp_id") != "TZa1b2c3":
-```
-而不是检查数据库中的 `is_admin` 字段。这意味着：
-- `scripts/admin.py` 的 `admin grant` 命令赋予的管理员权限在 Web 端完全无效
-- `init_data.json` 中 `"is_admin": true` 的用户（如 TZzhjiac）无法访问管理后台
-- 数据库中的 `is_admin` 字段和 `set_user_admin_status()` 方法成为死代码
-
-**修复建议**: 将硬编码检查改为 `if not user_info or not user_info.get("is_admin")`。
+**修复方案**: 将所有管理员接口中 `user_info.get("emp_id") != "TZa1b2c3"` 和 `user_info.get("emp_id") != "TZzhjiac"` 的硬编码检查统一改为 `not user_info.get("is_admin")`，使数据库 `is_admin` 字段和 `admin grant/revoke` 命令真正生效。
 
 ---
 
-### BUG-04: Message ID 截断导致碰撞风险
+### BUG-04: Message ID 截断导致碰撞风险 — ✅ 已修复
 
-**文件**: `src/core/message_manager.py:33`
+**文件**: `src/core/message_manager.py`
 
-```python
-msg_id = str(uuid.uuid4())[:8]
-```
-
-**描述**: UUID 被截断为仅 8 个十六进制字符（约 4 字节 / 32 位），碰撞空间远小于完整 UUID。根据生日悖论，约 77,000 条消息后碰撞概率达到 50%。碰撞会导致 `INSERT` 因 PRIMARY KEY 冲突而失败，消息丢失且无错误处理。
-
-**修复建议**: 使用完整 UUID (`str(uuid.uuid4())`) 或至少 16 位，并在 `save_message` 中增加异常处理。
+**修复方案**: 将 `str(uuid.uuid4())[:8]` 改为 `str(uuid.uuid4())`，使用完整 36 字符 UUID，彻底消除碰撞风险。
 
 ---
 
-### BUG-05: 消息发送无接收人校验
+### BUG-05: 消息发送无接收人校验 — ✅ 已修复
 
-**文件**: `src/api/server.py:676-682`, `src/core/message_manager.py:28-41`
+**文件**: `src/core/message_manager.py`, `src/api/server.py`
 
-**描述**: 发送消息时不验证 `receiver` 是否为数据库中存在的用户。消息可以发送给任意字符串（包括不存在的工号），会成功写入数据库但永远不会被读取，造成数据垃圾。
-
-**修复建议**: 在 `send_message` 中校验每个 receiver 是否存在于 `users` 表中。
+**修复方案**: 在 `MessageManager.send_message()` 中增加 `get_user_info(receiver)` 校验，不存在的接收人将被跳过并记录警告日志。`send_message` 返回值新增 `invalid_receivers` 列表，API 端点 `/api/messages/send` 会将无效接收人信息返回给调用方。
 
 ---
 
-### BUG-06: `/api/projects` 和 `/api/llm/convert` 使用 Cookie 认证而非 Bearer Token
+### BUG-06: `/api/projects` 和 `/api/llm/convert` 使用 Cookie 认证而非 Bearer Token — ✅ 已修复
 
-**文件**: `src/api/server.py:576, 610`
+**文件**: `src/api/server.py`
 
-**描述**: 这两个 API 端点使用 `private_key: str = Cookie(None)` 进行认证，而其他所有 API 端点（`/api/messages/send`, `/api/messages/receive`, `/api/messages/sent`）使用 `Authorization: str = Header(None)` Bearer Token 认证。
-
-**影响**: API 客户端（如 `TuzhanClient` 和 AI Agent）通过 Bearer Token 调用这两个接口时会返回 401 未授权错误，因为它们不会发送 Cookie。这导致 Agent 无法获取项目列表，也无法使用 LLM 转换功能。
-
-**修复建议**: 统一使用 Header Bearer Token 认证，或同时支持两种方式。
+**修复方案**: 两个端点改为同时支持 `Authorization: Bearer <key>` Header 和 `private_key` Cookie 认证，优先使用 Bearer Token。API 客户端和 AI Agent 现在可以通过标准 Bearer Token 正常调用这两个接口。
 
 ---
 

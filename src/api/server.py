@@ -502,7 +502,7 @@ async def update_project_member_role(project_name: str, target_emp_id: str, req:
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
     user_info = db_manager.get_user_info(emp_id)
-    if not user_info or user_info.get("emp_id") != "TZzhjiac":
+    if not user_info or not user_info.get("is_admin"):
         raise HTTPException(status_code=403, detail="Access Denied")
         
     org_file = os.path.join(current_dir, '..', '..', 'config', 'org_chart.yaml')
@@ -584,12 +584,12 @@ async def dashboard_send(
         return RedirectResponse(url="/dashboard", status_code=303)
         
     receivers = [r.strip() for r in receiver.split(",")]
-    message_manager.send_message(
+    msg_ids, invalid_receivers = message_manager.send_message(
         sender=emp_id,
         receivers=receivers,
         content=content
     )
-    # 发送后回到主控台
+    # 发送后回到主控台（Web 端暂不展示无效接收人提示）
     return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.post("/dashboard/profile")
@@ -624,15 +624,22 @@ class ConvertRequest(BaseModel):
     content: str
 
 @app.get("/api/projects", summary="获取项目及成员列表")
-async def get_projects(private_key: str = Cookie(None)):
+async def get_projects(authorization: str = Header(None), private_key: str = Cookie(None)):
     """
-    [修改原因]: 获取系统中所有项目和对应的成员列表，供前端页面联动选择。
+    [修改原因]: 同时支持 Bearer Token 和 Cookie 认证，使 API 客户端和 Web 端均可调用 (BUG-06 修复)。
     [新增权限控制]: 只有当该员工属于某个项目时，才能拉取到该项目的信息。如果不属于任何项目，返回空列表。
     """
-    if not private_key:
+    # 优先使用 Bearer Token，其次使用 Cookie
+    key = None
+    if authorization and authorization.startswith("Bearer "):
+        key = authorization.split(" ")[1]
+    elif private_key:
+        key = private_key
+
+    if not key:
         raise HTTPException(status_code=401, detail="未授权")
-        
-    emp_id = db_manager.get_user_by_key(private_key, active_only=False)
+
+    emp_id = db_manager.get_user_by_key(key, active_only=False)
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
         
@@ -658,12 +665,19 @@ async def get_projects(private_key: str = Cookie(None)):
         return {"status": "error", "data": []}
 
 @app.post("/api/llm/convert", summary="大模型辅助 Markdown 转换接口")
-async def convert_to_markdown(req: ConvertRequest, private_key: str = Cookie(None)):
-    """调用阿里百炼 qwen-plus 将普通文本转换为 Markdown 格式"""
-    if not private_key:
+async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(None), private_key: str = Cookie(None)):
+    """[修改原因]: 同时支持 Bearer Token 和 Cookie 认证 (BUG-06 修复)"""
+    # 优先使用 Bearer Token，其次使用 Cookie
+    key = None
+    if authorization and authorization.startswith("Bearer "):
+        key = authorization.split(" ")[1]
+    elif private_key:
+        key = private_key
+
+    if not key:
         raise HTTPException(status_code=401, detail="未授权")
-        
-    emp_id = db_manager.get_user_by_key(private_key, active_only=False)
+
+    emp_id = db_manager.get_user_by_key(key, active_only=False)
     if not emp_id:
         raise HTTPException(status_code=401, detail="未授权")
         
@@ -726,12 +740,16 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
 
     receivers = [r.strip() for r in req.receiver.split(",")]
     try:
-        msg_ids = message_manager.send_message(
+        msg_ids, invalid_receivers = message_manager.send_message(
             sender=sender_emp_id,
             receivers=receivers,
             content=req.content
         )
-        return {"status": "success", "msg_ids": msg_ids, "message": "消息已成功存入数据库"}
+        result = {"status": "success", "msg_ids": msg_ids, "message": "消息已成功存入数据库"}
+        if invalid_receivers:
+            result["invalid_receivers"] = invalid_receivers
+            result["message"] = f"部分消息已发送，以下接收人不存在: {', '.join(invalid_receivers)}"
+        return result
     except Exception as e:
         logger.error(f"发送消息失败: {e}")
         raise HTTPException(status_code=500, detail="消息发送失败，请检查服务器日志")
