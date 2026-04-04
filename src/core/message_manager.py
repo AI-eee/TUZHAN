@@ -90,6 +90,16 @@ class MessageManager:
             logger.info(f"消息 [{msg_id}] 已被 {receiver} 标记为已读")
         return success
 
+    def delete_message(self, msg_id: str, user: str) -> bool:
+        """
+        [新增原因]: 支持删除消息功能
+        删除消息。
+        """
+        success = self.db.delete_message(msg_id, user)
+        if success:
+            logger.info(f"消息 [{msg_id}] 已被 {user} 删除")
+        return success
+
     def get_outbox_messages(self, sender: str) -> list:
         """
         获取指定发送者的发件箱中的所有消息。

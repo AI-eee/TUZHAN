@@ -750,6 +750,38 @@ async def mark_message_read(msg_id: str, authorization: str = Header(None)):
         logger.error(f"标记消息已读失败: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")
 
+@app.delete("/api/messages/{msg_id}", summary="删除消息")
+async def delete_message(msg_id: str, private_key: str = Cookie(None), authorization: str = Header(None)):
+    """
+    [新增原因]: 允许用户通过 Web 端或 API 端删除自己收发件箱中的消息。
+    """
+    key = None
+    if authorization and authorization.startswith("Bearer "):
+        key = authorization.split(" ")[1]
+    elif private_key:
+        key = private_key
+
+    if not key:
+        raise HTTPException(status_code=401, detail="未授权")
+
+    emp_id = db_manager.get_user_by_key(key, active_only=False)
+    if not emp_id:
+        raise HTTPException(status_code=403, detail="无效的凭证")
+
+    user_info = db_manager.get_user_info(emp_id)
+    if user_info and user_info.get("status") == "disabled":
+        raise HTTPException(status_code=403, detail="您的账号已被禁用")
+
+    try:
+        success = message_manager.delete_message(msg_id, emp_id)
+        if success:
+            return {"status": "success", "message": "删除成功"}
+        else:
+            raise HTTPException(status_code=404, detail="找不到对应的消息或权限不足")
+    except Exception as e:
+        logger.error(f"删除消息失败: {e}")
+        raise HTTPException(status_code=500, detail="服务器内部错误")
+
 @app.get("/api/messages/sent", summary="获取发件箱接口")
 async def sent_messages(authorization: str = Header(None)):
     """

@@ -86,6 +86,14 @@ class DatabaseManager:
                 # [修改原因]: 根据最新要求，超管工号固定为 TZzhjiac
                 cursor.execute("UPDATE users SET is_admin = 1 WHERE emp_id = 'TZzhjiac'")
                 
+            # [新增原因]：热更新 messages 表的软删除字段
+            cursor.execute("PRAGMA table_info(messages)")
+            msg_columns = [info[1] for info in cursor.fetchall()]
+            if 'sender_deleted' not in msg_columns:
+                cursor.execute("ALTER TABLE messages ADD COLUMN sender_deleted INTEGER DEFAULT 0")
+            if 'receiver_deleted' not in msg_columns:
+                cursor.execute("ALTER TABLE messages ADD COLUMN receiver_deleted INTEGER DEFAULT 0")
+                
             conn.commit()
 
     def init_tables(self):
@@ -102,6 +110,8 @@ class DatabaseManager:
                     subject TEXT,
                     content TEXT,
                     status TEXT DEFAULT 'unread',
+                    sender_deleted INTEGER DEFAULT 0,
+                    receiver_deleted INTEGER DEFAULT 0,
                     created_at TEXT NOT NULL
                 )
             ''')
@@ -240,12 +250,12 @@ class DatabaseManager:
             cursor = conn.cursor()
             if status:
                 cursor.execute(
-                    "SELECT * FROM messages WHERE receiver = ? AND status = ? ORDER BY created_at DESC", 
+                    "SELECT * FROM messages WHERE receiver = ? AND status = ? AND receiver_deleted = 0 ORDER BY created_at DESC", 
                     (user, status)
                 )
             else:
                 cursor.execute(
-                    "SELECT * FROM messages WHERE receiver = ? ORDER BY created_at DESC", 
+                    "SELECT * FROM messages WHERE receiver = ? AND receiver_deleted = 0 ORDER BY created_at DESC", 
                     (user,)
                 )
             return [dict(row) for row in cursor.fetchall()]
@@ -255,7 +265,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT * FROM messages WHERE sender = ? ORDER BY created_at DESC", 
+                "SELECT * FROM messages WHERE sender = ? AND sender_deleted = 0 ORDER BY created_at DESC", 
                 (user,)
             )
             return [dict(row) for row in cursor.fetchall()]
@@ -274,6 +284,22 @@ class DatabaseManager:
             cursor.execute(
                 "UPDATE messages SET status = 'read' WHERE id = ? AND receiver = ?", 
                 (msg_id, receiver)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_message(self, msg_id: str, user: str) -> bool:
+        """[新增原因]：允许用户软删除自己收发件箱的消息"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE messages 
+                SET sender_deleted = CASE WHEN sender = ? THEN 1 ELSE sender_deleted END,
+                    receiver_deleted = CASE WHEN receiver = ? THEN 1 ELSE receiver_deleted END
+                WHERE id = ? AND (sender = ? OR receiver = ?)
+                """, 
+                (user, user, msg_id, user, user)
             )
             conn.commit()
             return cursor.rowcount > 0
