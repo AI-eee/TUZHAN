@@ -240,8 +240,8 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
     all_users = db_manager.get_all_users()
     
     # [修改原因]: 不再在此处全量拉取消息，改为提供初始第一页数据及分页元信息，由前端 Ajax 接管
-    # 保持向后兼容或初始渲染，只拉取前 5 条
-    limit = 5
+    # 保持向后兼容或初始渲染，根据需求修改每页拉取 50 条
+    limit = 50
     all_messages = db_manager.get_all_messages(limit=limit, offset=0)
     total_messages_count = db_manager.get_messages_total_count()
     
@@ -284,7 +284,7 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
 @app.get("/api/admin/messages", summary="管理后台获取全量消息分页数据")
 async def api_admin_messages(
     page: int = Query(1, ge=1),
-    limit: int = Query(5, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=100),
     emp_id: str = Cookie(None),
     private_key: str = Cookie(None),
     admin_logged_in: str = Cookie(None)

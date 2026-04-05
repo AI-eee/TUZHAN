@@ -1062,7 +1062,8 @@
     }
 
     function loadMessagesPage(page) {
-        const limit = parseInt(document.getElementById('messages-per-page').value) || 5;
+        // [修改原因]: 修改后台分页为每页 50 条数据
+        const limit = parseInt(document.getElementById('messages-per-page').value) || 50;
         
         fetch(`/api/admin/messages?page=${page}&limit=${limit}`)
             .then(res => {
@@ -1170,7 +1171,8 @@
         
         // 初始渲染服务端直出的第一页分页控件
         const totalCount = parseInt(document.getElementById('messages-total-count').value) || 0;
-        const limit = parseInt(document.getElementById('messages-per-page').value) || 5;
+        // [修改原因]: 修改后台分页为每页 50 条数据
+        const limit = parseInt(document.getElementById('messages-per-page').value) || 50;
         renderPagination('messages-pagination', totalCount, limit, 1, loadMessagesPage);
     });
 
