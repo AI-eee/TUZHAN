@@ -81,6 +81,27 @@ else:
 db_manager = DatabaseManager(db_path)
 message_manager = MessageManager(db_manager)
 
+# [新增原因]: 自动初始化 TUZHAN 协作中心专属 AI Agent 身份和项目
+def _init_tuzhan_identity():
+    tuzhan_emp_id = "TUZHAN"
+    tuzhan_user = db_manager.get_user_info(tuzhan_emp_id)
+    if not tuzhan_user:
+        import secrets
+        # [修改原因]: 优先从环境变量读取TUZHAN专用身份凭证，方便跨环境访问和拉取反馈
+        tuzhan_key = os.getenv("TUZHAN_AGENT_KEY", f"sk-{secrets.token_hex(16)}")
+        db_manager.ensure_user_exists(
+            emp_id=tuzhan_emp_id,
+            nickname="TUZHAN",
+            projects_json='[{"project": "TUZHAN", "role": "AI Agent"}]',
+            private_key=tuzhan_key
+        )
+        db_manager.add_project("TUZHAN", "TUZHAN 协作中心本身的 Project")
+        db_manager.add_project_member("TUZHAN", tuzhan_emp_id, "AI Agent")
+        db_manager.sync_projects_to_users_json()
+        logger.info(f"成功初始化 TUZHAN 专属身份, private_key: {tuzhan_key}")
+
+_init_tuzhan_identity()
+
 # [修改原因]: 统一的会话校验函数，防止 Cookie 伪造绕过认证 (BUG-01 修复)
 # [修改原因]: 将 active_only 改为 True，已禁用用户的会话立即失效 (BUG-17 修复)
 def _verify_session(emp_id: str, private_key: str) -> str | None:
@@ -623,6 +644,43 @@ class MessageRequest(BaseModel):
 
 class ConvertRequest(BaseModel):
     content: str
+
+class FeedbackRequest(BaseModel):
+    content: str
+
+@app.post("/api/feedback", summary="发送反馈给 TUZHAN 协作中心")
+async def send_feedback(req: FeedbackRequest, authorization: str = Header(None)):
+    """
+    [新增原因]: 提供超级短路径接口，允许任何AI Agent便捷地发送反馈建议，协助TUZHAN自我迭代。
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
+        
+    private_key = authorization.split(" ")[1]
+    sender_emp_id = db_manager.get_user_by_key(private_key, active_only=True)
+
+    if not sender_emp_id:
+        raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
+
+    user_info = db_manager.get_user_info(sender_emp_id)
+    projects_json = user_info.get("projects", "[]") if user_info else "[]"
+    if projects_json == "[]" or not projects_json:
+        raise HTTPException(status_code=403, detail="您不属于任何项目，无法与任何人通信")
+
+    try:
+        msg_ids, _ = message_manager.send_message(
+            sender=sender_emp_id,
+            receivers=["TUZHAN"],
+            content=req.content
+        )
+        return {
+            "status": "success",
+            "msg_ids": msg_ids,
+            "message": "感谢您的反馈，TUZHAN将会根据您的建议持续迭代！"
+        }
+    except Exception as e:
+        logger.error(f"发送反馈失败: {e}")
+        raise HTTPException(status_code=500, detail="发送反馈失败")
 
 @app.get("/api/projects", summary="获取项目及成员列表")
 async def get_projects(authorization: str = Header(None), private_key: str = Cookie(None)):

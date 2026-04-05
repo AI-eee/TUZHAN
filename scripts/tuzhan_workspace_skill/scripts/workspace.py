@@ -64,6 +64,22 @@ def send_message(target_emp_id, content):
     else:
         print(f"消息发送失败: {send_resp}")
 
+def send_feedback(content):
+    if not content:
+        print("发送失败：反馈内容不能为空。")
+        return
+
+    print("正在向 TUZHAN 发送反馈建议...")
+    payload = json.dumps({
+        "content": content
+    }).encode("utf-8")
+    
+    send_resp = request("/feedback", method="POST", data=payload)
+    if send_resp and send_resp.get("status") == "success":
+        print("感谢您的反馈，TUZHAN将会根据您的建议持续迭代！")
+    else:
+        print(f"反馈发送失败: {send_resp}")
+
 def sync_inbox_outbox():
     print(f"正在使用工作区: {WORKSPACE_DIR}")
     
@@ -130,8 +146,9 @@ def main():
     parser = argparse.ArgumentParser(description="TUZHAN 协作中心命令行工具")
     parser.add_argument("--list", action="store_true", help="拉取并查看当前项目和同事名单")
     parser.add_argument("--send", action="store_true", help="发送消息")
+    parser.add_argument("--feedback", action="store_true", help="给 TUZHAN 发送产品迭代建议")
     parser.add_argument("--target_emp_id", type=str, help="目标同事的工号 (发送消息时必填)")
-    parser.add_argument("--content", type=str, help="Markdown 格式的消息正文 (发送消息时必填)")
+    parser.add_argument("--content", type=str, help="Markdown 格式的消息正文 (发送消息或反馈时必填)")
     
     args = parser.parse_args()
 
@@ -142,6 +159,11 @@ def main():
             print("错误: 发送消息时必须提供 --target_emp_id 和 --content 参数。")
             sys.exit(1)
         send_message(args.target_emp_id, args.content)
+    elif args.feedback:
+        if not args.content:
+            print("错误: 发送反馈时必须提供 --content 参数。")
+            sys.exit(1)
+        send_feedback(args.content)
     else:
         # 默认行为：同步收件箱和发件箱
         sync_inbox_outbox()
