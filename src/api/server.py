@@ -165,8 +165,9 @@ async def dashboard(request: Request, emp_id: str = Cookie(None), private_key: s
     if user_info and user_info.get("projects"):
         try:
             projects = json.loads(user_info["projects"])
-        except:
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            # [修改原因]: 捕获具体异常并记录日志，避免裸 except 吞掉所有错误 (BUG-09 修复)
+            logger.warning(f"解析用户 {emp_id} 的项目 JSON 失败: {e}")
             
     messages = message_manager.get_inbox_messages(emp_id)
     sent_messages = message_manager.get_outbox_messages(emp_id)
@@ -250,7 +251,7 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
         if u.get("projects"):
             try:
                 u["projects_list"] = json.loads(u["projects"])
-            except:
+            except (json.JSONDecodeError, TypeError):
                 u["projects_list"] = []
                 
     # 使用 DB 中存储的项目信息
@@ -516,7 +517,11 @@ class LLMKeyRequest(BaseModel):
 async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
     """[新增原因]: 允许管理员更新 LLM_API_KEY。增加 private_key 会话校验 (BUG-16 修复)"""
     _require_admin(emp_id, private_key)
-        
+
+    # [修改原因]: 净化输入，防止通过换行符注入任意环境变量 (BUG-19 修复)
+    if '\n' in req.llm_api_key or '\r' in req.llm_api_key or '=' in req.llm_api_key:
+        raise HTTPException(status_code=400, detail="API Key 包含非法字符")
+
     env_file = os.path.join(current_dir, '..', '..', '.env')
     lines = []
     key_found = False
@@ -548,12 +553,11 @@ async def dashboard_send(
     private_key: str = Cookie(None)
 ):
     """Web端发消息处理，增加对 Key 的校验及群发支持"""
-    if not private_key or db_manager.get_user_by_key(private_key, active_only=False) != emp_id:
+    # [修改原因]: 改为 active_only=True，已禁用用户直接拒绝，无需再手动检查 status (BUG-25 修复)
+    if not private_key or db_manager.get_user_by_key(private_key, active_only=True) != emp_id:
         return RedirectResponse(url="/", status_code=303)
-        
+
     user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        return RedirectResponse(url="/", status_code=303)
         
     projects_json = user_info.get("projects", "[]") if user_info else "[]"
     if projects_json == "[]" or not projects_json:
@@ -577,12 +581,11 @@ async def update_profile(
     private_key: str = Cookie(None)
 ):
     """[新增原因]: 用户更新个人资料"""
-    if not private_key or db_manager.get_user_by_key(private_key, active_only=False) != emp_id:
+    # [修改原因]: 改为 active_only=True (BUG-25 修复)
+    if not private_key or db_manager.get_user_by_key(private_key, active_only=True) != emp_id:
         return {"status": "error", "detail": "未授权"}
-        
+
     user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        return {"status": "error", "detail": "账号已被禁用"}
         
     if nickname is not None:
         nickname = nickname.strip()
@@ -637,14 +640,12 @@ async def get_projects(authorization: str = Header(None), private_key: str = Coo
     if not key:
         raise HTTPException(status_code=401, detail="未授权")
 
-    emp_id = db_manager.get_user_by_key(key, active_only=False)
+    # [修改原因]: 改为 active_only=True，已禁用用户直接拒绝 (BUG-25 修复)
+    emp_id = db_manager.get_user_by_key(key, active_only=True)
     if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-        
+        raise HTTPException(status_code=401, detail="未授权或账号已被禁用")
+
     user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        raise HTTPException(status_code=403, detail="您的账号已被禁用")
-        
     try:
         all_projects = db_manager.get_all_projects()
         # 仅返回该员工所在的项目
@@ -671,13 +672,10 @@ async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(N
     if not key:
         raise HTTPException(status_code=401, detail="未授权")
 
-    emp_id = db_manager.get_user_by_key(key, active_only=False)
+    # [修改原因]: 改为 active_only=True (BUG-25 修复)
+    emp_id = db_manager.get_user_by_key(key, active_only=True)
     if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        raise HTTPException(status_code=403, detail="您的账号已被禁用")
+        raise HTTPException(status_code=401, detail="未授权或账号已被禁用")
 
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
@@ -705,9 +703,9 @@ async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(N
         md_content = completion.choices[0].message.content
         return {"status": "success", "data": md_content}
     except Exception as e:
+        # [修改原因]: 详细错误仅记录在服务端日志，不暴露给客户端 (BUG-12 修复)
         logger.error(f"大模型调用失败: {e}")
-        # [修改原因]：将具体的错误抛给前端，方便调试
-        raise HTTPException(status_code=500, detail=f"智能转换失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="智能转换失败，请稍后重试")
 
 @app.post("/api/messages/send", summary="发送消息接口")
 async def send_message(req: MessageRequest, authorization: str = Header(None)):
@@ -720,15 +718,13 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
         
     private_key = authorization.split(" ")[1]
-    sender_emp_id = db_manager.get_user_by_key(private_key, active_only=False)
-    
-    if not sender_emp_id:
-        raise HTTPException(status_code=403, detail="无效的 Private Key")
-        
-    user_info = db_manager.get_user_info(sender_emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        raise HTTPException(status_code=403, detail="您的账号已被禁用")
+    # [修改原因]: 改为 active_only=True (BUG-25 修复)
+    sender_emp_id = db_manager.get_user_by_key(private_key, active_only=True)
 
+    if not sender_emp_id:
+        raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
+
+    user_info = db_manager.get_user_info(sender_emp_id)
     projects_json = user_info.get("projects", "[]") if user_info else "[]"
     if projects_json == "[]" or not projects_json:
         raise HTTPException(status_code=403, detail="您不属于任何项目，无法与任何人通信")
@@ -760,15 +756,13 @@ async def receive_messages(authorization: str = Header(None), status: Optional[s
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
         
     private_key = authorization.split(" ")[1]
-    emp_id = db_manager.get_user_by_key(private_key, active_only=False)
-    
-    if not emp_id:
-        raise HTTPException(status_code=403, detail="无效的 Private Key")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        raise HTTPException(status_code=403, detail="您的账号已被禁用")
+    # [修改原因]: 改为 active_only=True (BUG-25 修复)
+    emp_id = db_manager.get_user_by_key(private_key, active_only=True)
 
+    if not emp_id:
+        raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
+
+    user_info = db_manager.get_user_info(emp_id)
     projects_json = user_info.get("projects", "[]") if user_info else "[]"
     if projects_json == "[]" or not projects_json:
         raise HTTPException(status_code=403, detail="您不属于任何项目，无法拉取收件箱")
@@ -848,15 +842,13 @@ async def sent_messages(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
         
     private_key = authorization.split(" ")[1]
-    emp_id = db_manager.get_user_by_key(private_key, active_only=False)
-    
-    if not emp_id:
-        raise HTTPException(status_code=403, detail="无效的 Private Key")
-        
-    user_info = db_manager.get_user_info(emp_id)
-    if user_info and user_info.get("status") == "disabled":
-        raise HTTPException(status_code=403, detail="您的账号已被禁用")
+    # [修改原因]: 改为 active_only=True (BUG-25 修复)
+    emp_id = db_manager.get_user_by_key(private_key, active_only=True)
 
+    if not emp_id:
+        raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
+
+    user_info = db_manager.get_user_info(emp_id)
     projects_json = user_info.get("projects", "[]") if user_info else "[]"
     if projects_json == "[]" or not projects_json:
         raise HTTPException(status_code=403, detail="您不属于任何项目，无法拉取发件箱")

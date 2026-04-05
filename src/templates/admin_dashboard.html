@@ -408,8 +408,9 @@
                             </span>
                         </h3>
                         <div style="display: flex; gap: 8px;">
-                            <button class="action-btn-sm" onclick="openMemberModal('{{ proj.name }}')">+ 添加成员</button>
-                            <button class="action-btn-sm" onclick="deleteProject('{{ proj.name }}')" style="background: #ef4444;">删除项目</button>
+                            <!-- [修改原因]: 使用 data-* 属性代替 onclick 字符串拼接，防止 XSS (BUG-23 修复) -->
+                            <button class="action-btn-sm" data-project="{{ proj.name }}" onclick="openMemberModal(this.dataset.project)">+ 添加成员</button>
+                            <button class="action-btn-sm" data-project="{{ proj.name }}" onclick="deleteProject(this.dataset.project)" style="background: #ef4444;">删除项目</button>
                         </div>
                     </div>
 
@@ -422,10 +423,14 @@
                                 <div class="member-item-header">
                                     <strong style="font-size: 14px;">{{ m.nickname }}</strong>
                                     <div style="display: flex; align-items: center; gap: 8px;">
+                                        <!-- [修改原因]: 使用 data-* 属性代替 onclick 字符串拼接，防止 XSS (BUG-23 修复) -->
                                         <span class="member-item-role"
                                                title="双击编辑角色"
-                                               ondblclick="editMemberRole(this, '{{ proj.name }}', '{{ m.emp_id }}', '{{ m.role }}')">{{ m.role }}</span>
-                                        <svg onclick="removeProjectMember('{{ proj.name }}', '{{ m.emp_id }}')" class="tz-icon-btn danger" style="cursor: pointer;" title="移除该成员" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                               data-project="{{ proj.name }}"
+                                               data-emp="{{ m.emp_id }}"
+                                               data-role="{{ m.role }}"
+                                               ondblclick="editMemberRole(this, this.dataset.project, this.dataset.emp, this.dataset.role)">{{ m.role }}</span>
+                                        <svg data-project="{{ proj.name }}" data-emp="{{ m.emp_id }}" onclick="removeProjectMember(this.dataset.project, this.dataset.emp)" class="tz-icon-btn danger" style="cursor: pointer;" title="移除该成员" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                             <line x1="10" y1="11" x2="10" y2="17"></line>
@@ -962,12 +967,10 @@
                 const data = await response.json();
                 if (response.ok && data.status === 'success') {
                     spanElement.innerText = newRole;
-                    spanElement.onclick = null;
+                    // [修改原因]: 更新 data 属性并保持 ondblclick 通过 dataset 读取，防止 XSS (BUG-23 修复)
+                    spanElement.dataset.role = newRole;
                     spanElement.removeAttribute('ondblclick');
-                    spanElement.addEventListener('dblclick', function handler() {
-                        spanElement.removeEventListener('dblclick', handler);
-                        editMemberRole(spanElement, projectName, empId, newRole);
-                    });
+                    spanElement.setAttribute('ondblclick', 'editMemberRole(this, this.dataset.project, this.dataset.emp, this.dataset.role)');
                     TZUI.toast('角色已更新！', 'success');
                 } else {
                     TZUI.toast('更新失败: ' + (data.detail || '未知错误'), 'error');

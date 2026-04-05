@@ -110,7 +110,7 @@ def init_database(env="production"):
     print(f"\n========== {env.upper()} 数据库初始化完毕 ==========")
 
 if __name__ == "__main__":
-    import argparse
+    # [修改原因]: 移除重复的 argparse 导入，文件开头已导入 (BUG-14 修复)
     parser = argparse.ArgumentParser(description="TUZHAN 数据库初始化工具")
     parser.add_argument("--env", choices=["development", "production"], default=None, help="运行环境 (默认从 .env 读取，否则为 development)")
     

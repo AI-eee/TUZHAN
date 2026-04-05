@@ -766,10 +766,11 @@
     }
 
     let easymde = null;
+    // [修改原因]: 合并为单个 document.addEventListener，修复 window 上监听 DOMContentLoaded 不规范的问题 (BUG-46 修复)
     document.addEventListener('DOMContentLoaded', () => {
         setupPagination('inbox-list', 'inbox-pagination', 50);
         setupPagination('outbox-list', 'outbox-pagination', 50);
-        
+
         document.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
 
         const contentArea = document.getElementById('msg-content');
@@ -793,6 +794,10 @@
                 }
             });
         }
+
+        // 读取 URL hash 恢复 tab 状态
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#tab-')) switchTab(hash.substring(1));
     });
 
     // Tab switching with hash memory
@@ -812,11 +817,6 @@
             window.location.hash = '#' + tabId;
         }
     }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        const hash = window.location.hash;
-        if (hash && hash.startsWith('#tab-')) switchTab(hash.substring(1));
-    });
 
     window.addEventListener('hashchange', () => {
         const hash = window.location.hash;

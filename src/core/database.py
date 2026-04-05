@@ -28,6 +28,8 @@ class DatabaseManager:
     def get_connection(self):
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        # [修改原因]: 启用外键约束，使 ON DELETE CASCADE 等声明真正生效 (BUG-22 修复)
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def _upgrade_db(self):
@@ -51,6 +53,7 @@ class DatabaseManager:
                         projects TEXT DEFAULT '[]',
                         private_key TEXT UNIQUE,
                         status TEXT DEFAULT 'active',
+                        is_admin INTEGER DEFAULT 0,
                         identity_md TEXT,
                         bio TEXT,
                         created_at TEXT NOT NULL
@@ -69,16 +72,23 @@ class DatabaseManager:
                 sel_nickname = "COALESCE(nickname, username)" if has_nickname else "username"
                 sel_bio = "bio" if has_bio else "NULL"
                 
+                has_is_admin = 'is_admin' in columns
+                sel_is_admin = "is_admin" if has_is_admin else "0"
+
                 cursor.execute(f'''
-                    INSERT INTO users_new (emp_id, nickname, projects, private_key, status, identity_md, bio, created_at)
-                    SELECT emp_id, {sel_nickname}, projects, private_key, {sel_status}, {sel_identity}, {sel_bio}, created_at
+                    INSERT INTO users_new (emp_id, nickname, projects, private_key, status, is_admin, identity_md, bio, created_at)
+                    SELECT emp_id, {sel_nickname}, projects, private_key, {sel_status}, {sel_is_admin}, {sel_identity}, {sel_bio}, created_at
                     FROM users WHERE emp_id IS NOT NULL
                 ''')
                 
                 # 4. 删除老表，重命名新表
                 cursor.execute('DROP TABLE users')
                 cursor.execute('ALTER TABLE users_new RENAME TO users')
-                
+
+                # [修改原因]: 表重建后刷新列信息，避免后续列检查基于已删除的旧表结构 (BUG-08 修复)
+                cursor.execute("PRAGMA table_info(users)")
+                columns = [info[1] for info in cursor.fetchall()]
+
             # [新增原因]：热更新 is_admin 字段，用于标记管理员角色
             if 'is_admin' not in columns:
                 cursor.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
@@ -355,17 +365,23 @@ class DatabaseManager:
             cursor.execute("SELECT * FROM users ORDER BY emp_id ASC")
             return [dict(row) for row in cursor.fetchall()]
 
-    def save_message(self, msg_id: str, sender: str, receiver: str, content: str):
+    def save_message(self, msg_id: str, sender: str, receiver: str, content: str) -> bool:
         """保存发送的消息"""
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            # subject 在表中虽然存在，但我们不再写入
-            cursor.execute(
-                "INSERT INTO messages (id, sender, receiver, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                (msg_id, sender, receiver, content, created_at)
-            )
-            conn.commit()
+            try:
+                # subject 在表中虽然存在，但我们不再写入
+                cursor.execute(
+                    "INSERT INTO messages (id, sender, receiver, content, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (msg_id, sender, receiver, content, created_at)
+                )
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                # [修改原因]: 处理消息 ID 重复（PRIMARY KEY 碰撞），避免 500 崩溃 (BUG-34 修复)
+                logger.warning(f"消息保存失败: msg_id={msg_id} 已存在")
+                return False
             
     def ensure_user_exists(self, emp_id: str, nickname: Optional[str] = None, projects_json: str = "[]", private_key: Optional[str] = None):
         """确保用户存在，支持传入包含项目和角色的 JSON 字符串及工号"""
@@ -391,10 +407,14 @@ class DatabaseManager:
                         (nickname, emp_id)
                     )
                 if private_key:
-                    cursor.execute(
-                        "UPDATE users SET private_key = ? WHERE emp_id = ?",
-                        (private_key, emp_id)
-                    )
+                    try:
+                        cursor.execute(
+                            "UPDATE users SET private_key = ? WHERE emp_id = ?",
+                            (private_key, emp_id)
+                        )
+                    except sqlite3.IntegrityError:
+                        # [修改原因]: 处理 private_key 唯一约束冲突 (BUG-35 修复)
+                        logger.warning(f"更新用户 {emp_id} 的 private_key 失败: 密钥与其他用户冲突")
                 conn.commit()
 
     def clear_all_user_projects(self):
@@ -440,12 +460,20 @@ class DatabaseManager:
         """[新增原因]：为管理员提供根据工号重新生成 Private Key 的能力"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE users SET private_key = ? WHERE emp_id = ?", (new_key, emp_id))
-            conn.commit()
-            return cursor.rowcount > 0
+            try:
+                cursor.execute("UPDATE users SET private_key = ? WHERE emp_id = ?", (new_key, emp_id))
+                conn.commit()
+                return cursor.rowcount > 0
+            except sqlite3.IntegrityError:
+                # [修改原因]: 处理 private_key 唯一约束冲突，避免 500 崩溃 (BUG-33 修复)
+                logger.warning(f"密钥重生成失败: 新密钥与已有用户冲突 (emp_id={emp_id})")
+                return False
 
     def update_user_status(self, emp_id: str, status: str) -> bool:
         """更新用户的启用/禁用状态"""
+        # [修改原因]: 校验 status 只允许合法值，防止拼写错误静默锁定用户 (BUG-37 修复)
+        if status not in ('active', 'disabled'):
+            raise ValueError(f"无效的状态值: '{status}'，仅允许 'active' 或 'disabled'")
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("UPDATE users SET status = ? WHERE emp_id = ?", (status, emp_id))
