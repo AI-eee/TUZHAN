@@ -20,14 +20,28 @@ class MessageManager:
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
 
-    def send_message(self, sender: str, receivers: list, content: str) -> tuple:
+    def send_message(self, sender: str, receivers: list, content: str, require_same_project: bool = False) -> tuple:
         """
         发送消息：将内容通过 DatabaseManager 入库。
         支持传入多个 receiver (群发)，返回生成的消息 ID 列表。
         [修改原因]: 增加接收人校验，防止向不存在的用户发送消息 (BUG-05 修复)
+        [修改原因]: 增加 require_same_project 参数，以支持跨项目通信的限制。
         """
         msg_ids = []
         invalid_receivers = []
+        
+        # 提取发送者的项目列表（如果需要校验同项目）
+        sender_proj_names = set()
+        if require_same_project:
+            sender_info = self.db.get_user_info(sender)
+            if sender_info and sender_info.get("projects"):
+                import json
+                try:
+                    sender_projs = json.loads(sender_info["projects"])
+                    sender_proj_names = {p.get("project") for p in sender_projs}
+                except:
+                    pass
+
         for receiver in receivers:
             receiver = receiver.strip()
             if not receiver:
@@ -38,6 +52,22 @@ class MessageManager:
             if not receiver_info:
                 invalid_receivers.append(receiver)
                 continue
+
+            # 校验是否同项目（如果是发给自己，则免除校验）
+            if require_same_project and receiver != sender:
+                r_proj_names = set()
+                if receiver_info.get("projects"):
+                    import json
+                    try:
+                        r_projs = json.loads(receiver_info["projects"])
+                        r_proj_names = {p.get("project") for p in r_projs}
+                    except:
+                        pass
+                
+                if not sender_proj_names.intersection(r_proj_names):
+                    logger.warning(f"接收人 {receiver} 不在发送者 {sender} 的任何项目组中，已拦截")
+                    invalid_receivers.append(receiver)
+                    continue
 
             msg_id = str(uuid.uuid4())
             

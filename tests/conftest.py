@@ -108,7 +108,10 @@ def setup_test_data(db_manager):
         "disabled_key": "sk-testdskey00000000000000000004",
         "admin_emp_id": "TZ_test_ad",
         "admin_key": "sk-testadkey00000000000000000005",
+        "user3_emp_id": "TZ_test_u3",
+        "user3_key": "sk-testu3key00000000000000000006",
         "project_name": "_TestProject",
+        "project2_name": "_TestProject2",
     }
 
     # 创建用户
@@ -117,6 +120,7 @@ def setup_test_data(db_manager):
     db_manager.ensure_user_exists(data["noproj_emp_id"], "无项目员工", "[]", data["noproj_key"])
     db_manager.ensure_user_exists(data["disabled_emp_id"], "被禁用员工", "[]", data["disabled_key"])
     db_manager.ensure_user_exists(data["admin_emp_id"], "测试管理员", "[]", data["admin_key"])
+    db_manager.ensure_user_exists(data["user3_emp_id"], "测试员工3", "[]", data["user3_key"])
 
     # 设置状态
     db_manager.update_user_status(data["user1_emp_id"], "active")
@@ -124,6 +128,7 @@ def setup_test_data(db_manager):
     db_manager.update_user_status(data["noproj_emp_id"], "active")
     db_manager.update_user_status(data["disabled_emp_id"], "disabled")
     db_manager.update_user_status(data["admin_emp_id"], "active")
+    db_manager.update_user_status(data["user3_emp_id"], "active")
     db_manager.set_user_admin_status(data["admin_emp_id"], True)
 
     # 创建测试项目并添加成员
@@ -131,6 +136,10 @@ def setup_test_data(db_manager):
     db_manager.add_project_member(data["project_name"], data["user1_emp_id"], "Engineer")
     db_manager.add_project_member(data["project_name"], data["user2_emp_id"], "Engineer")
     db_manager.add_project_member(data["project_name"], data["admin_emp_id"], "Admin")
+
+    db_manager.add_project(data["project2_name"], "自动化测试专用项目2（可安全删除）")
+    db_manager.add_project_member(data["project2_name"], data["user3_emp_id"], "Engineer")
+
     db_manager.sync_projects_to_users_json()
 
     yield data
@@ -150,7 +159,7 @@ def _cleanup_test_data(db, data):
         # 清理项目
         cursor.execute("DELETE FROM projects WHERE name LIKE '_Test%' OR name LIKE 'ProjectToDelete%'")
         # 清理用户
-        cursor.execute("DELETE FROM users WHERE emp_id LIKE 'TZ_test_%' OR emp_id = 'TZtmpDisable'")
+        cursor.execute("DELETE FROM users WHERE emp_id LIKE 'TZ_test_%' OR emp_id = 'TZtmpDisable' OR nickname = 'TestNewUser'")
         conn.commit()
 
 
@@ -167,6 +176,11 @@ def user2(setup_test_data):
     """普通员工2（有项目）"""
     return {"emp_id": setup_test_data["user2_emp_id"], "key": setup_test_data["user2_key"]}
 
+
+@pytest.fixture(scope="session")
+def user3(setup_test_data):
+    """普通员工3（有项目，属于 _TestProject2）"""
+    return {"emp_id": setup_test_data["user3_emp_id"], "key": setup_test_data["user3_key"]}
 
 @pytest.fixture(scope="session")
 def noproj_user(setup_test_data):

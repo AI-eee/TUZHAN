@@ -336,234 +336,8 @@ async def api_admin_messages(
         }
     }
 
-import uuid
-import secrets
-
-@app.post("/admin/users/{target_emp_id}/regenerate-key")
-async def regenerate_user_key(target_emp_id: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[修改原因]: 允许管理员为员工重新生成 Private Key。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    # 查找被修改用户
-    target_users = db_manager.get_all_users()
-    target_user = next((u for u in target_users if u["emp_id"] == target_emp_id), None)
-    if not target_user:
-        raise HTTPException(status_code=404, detail="未找到对应的员工")
-        
-    # 生成 sk- + 32位安全的随机字符串
-    random_str = secrets.token_hex(16) # 16 bytes = 32 hex chars
-    new_key = f"sk-{random_str}"
-    success = db_manager.update_user_key_by_emp_id(target_emp_id, new_key)
-    
-    if success:
-        return {"status": "success", "new_key": new_key}
-    else:
-        raise HTTPException(status_code=500, detail="重新生成失败，数据库更新错误")
-
-class IdentityRequest(BaseModel):
-    identity_md: str
-
-@app.post("/admin/users/{target_emp_id}/identity")
-async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 允许管理员更新员工身份设定的 Markdown。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    success = db_manager.update_user_identity(target_emp_id, req.identity_md)
-    if success:
-        return {"status": "success"}
-    else:
-        raise HTTPException(status_code=500, detail="保存失败")
-
-class StatusRequest(BaseModel):
-    status: str
-
-@app.post("/admin/users/{target_emp_id}/status")
-async def update_user_status(target_emp_id: str, req: StatusRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 允许管理员启用/禁用员工。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    if req.status not in ["active", "disabled"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-        
-    success = db_manager.update_user_status(target_emp_id, req.status)
-    if success:
-        return {"status": "success"}
-    else:
-        raise HTTPException(status_code=500, detail="更新状态失败")
-
-def sync_org_to_db():
-    """将 projects 表同步到 users 数据库，确保项目成员变更生效"""
-    db_manager.sync_projects_to_users_json()
-
-class UserCreateRequest(BaseModel):
-    nickname: str
-
-class ProjectCreateRequest(BaseModel):
-    name: str
-    description: str
-
-@app.post("/admin/users")
-async def add_user(req: UserCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 支持管理员在控制台新增员工成员。同时增加昵称唯一性校验，如果昵称已存在则拒绝创建。"""
-    _require_admin(emp_id, private_key)
-    
-    # [新增原因]: 校验昵称唯一性（去除首尾空格）
-    req.nickname = req.nickname.strip()
-    existing = db_manager.get_user_by_nickname(req.nickname)
-    if existing:
-        return {"status": "error", "detail": "该昵称已被使用，请换一个以方便分辨"}
-    
-    import random
-    import string
-    import secrets
-    
-    while True:
-        random_chars = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
-        new_emp_id = f"TZ{random_chars}"
-        if not db_manager.get_user_info(new_emp_id):
-            break
-            
-    new_key = f"sk-{secrets.token_hex(16)}"
-    
-    db_manager.ensure_user_exists(
-        emp_id=new_emp_id, 
-        nickname=req.nickname, 
-        projects_json="[]", 
-        private_key=new_key
-    )
-    
-    return {
-        "status": "success", 
-        "emp_id": new_emp_id, 
-        "nickname": req.nickname, 
-        "private_key": new_key
-    }
-
-@app.post("/admin/projects")
-async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 增加新项目到数据库。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    success = db_manager.add_project(req.name, req.description)
-    if not success:
-        raise HTTPException(status_code=400, detail="项目已存在")
-        
-    return {"status": "success"}
-
-@app.delete("/admin/projects/{project_name}")
-async def delete_project(project_name: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 软删除项目，删除的前提是移除了所有项目成员"""
-    _require_admin(emp_id, private_key)
-    
-    member_count = db_manager.get_project_member_count(project_name)
-    if member_count > 0:
-        raise HTTPException(status_code=400, detail="删除失败：项目中仍有成员，请先移除所有成员。")
-        
-    success = db_manager.delete_project(project_name)
-    if not success:
-        raise HTTPException(status_code=404, detail="项目未找到")
-        
-    sync_org_to_db()
-    return {"status": "success"}
-
-class MemberCreateRequest(BaseModel):
-    emp_ids: list[str]
-    role: str
-
-@app.post("/admin/projects/{project_name}/members")
-async def add_project_member(project_name: str, req: MemberCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[修改原因]: 向项目批量添加新成员（从库中选择）。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    if not req.emp_ids:
-        raise HTTPException(status_code=400, detail="至少需要选择一个成员")
-
-    added_count = 0
-    for e_id in req.emp_ids:
-        if db_manager.add_project_member(project_name, e_id, req.role):
-            added_count += 1
-            
-    if added_count == 0:
-        raise HTTPException(status_code=400, detail="所选成员已在项目中或不存在")
-    
-    sync_org_to_db()
-    return {"status": "success", "added": added_count}
-
-class ProjectDescRequest(BaseModel):
-    description: str
-
-@app.post("/admin/projects/{project_name}/description")
-async def update_project_description(project_name: str, req: ProjectDescRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 允许管理员双击修改项目说明并保存到数据库。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    success = db_manager.update_project_description(project_name, req.description)
-    if not success:
-        raise HTTPException(status_code=404, detail="项目未找到")
-        
-    sync_org_to_db()
-    return {"status": "success"}
-
-@app.delete("/admin/projects/{project_name}/members/{target_emp_id}")
-async def remove_project_member(project_name: str, target_emp_id: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 从项目中移除成员。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    success = db_manager.remove_project_member(project_name, target_emp_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="该员工不在项目中")
-        
-    sync_org_to_db()
-    return {"status": "success"}
-
-class MemberRoleUpdateRequest(BaseModel):
-    role: str
-
-@app.post("/admin/projects/{project_name}/members/{target_emp_id}/role")
-async def update_project_member_role(project_name: str, target_emp_id: str, req: MemberRoleUpdateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 允许管理员编辑项目成员的角色。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-        
-    success = db_manager.update_project_member_role(project_name, target_emp_id, req.role)
-    if not success:
-        raise HTTPException(status_code=404, detail="更新失败或员工不在项目中")
-        
-    sync_org_to_db()
-    return {"status": "success"}
-
-class LLMKeyRequest(BaseModel):
-    llm_api_key: str
-
-@app.post("/admin/config/llm-key")
-async def update_llm_key(req: LLMKeyRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
-    """[新增原因]: 允许管理员更新 LLM_API_KEY。增加 private_key 会话校验 (BUG-16 修复)"""
-    _require_admin(emp_id, private_key)
-
-    # [修改原因]: 净化输入，防止通过换行符注入任意环境变量 (BUG-19 修复)
-    if '\n' in req.llm_api_key or '\r' in req.llm_api_key or '=' in req.llm_api_key:
-        raise HTTPException(status_code=400, detail="API Key 包含非法字符")
-
-    env_file = os.path.join(current_dir, '..', '..', '.env')
-    lines = []
-    key_found = False
-    
-    if os.path.exists(env_file):
-        with open(env_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            
-    with open(env_file, 'w', encoding='utf-8') as f:
-        for line in lines:
-            if line.startswith("LLM_API_KEY="):
-                f.write(f"LLM_API_KEY={req.llm_api_key}\n")
-                key_found = True
-            else:
-                f.write(line)
-        if not key_found:
-            f.write(f"LLM_API_KEY={req.llm_api_key}\n")
-            
-    # 动态更新当前运行环境中的环境变量
-    os.environ["LLM_API_KEY"] = req.llm_api_key
-    return {"status": "success"}
+from api.admin_routes import register_admin_routes
+register_admin_routes(app, db_manager, _require_admin, current_dir)
 
 @app.post("/dashboard/send")
 async def dashboard_send(
@@ -589,7 +363,8 @@ async def dashboard_send(
     msg_ids, invalid_receivers = message_manager.send_message(
         sender=emp_id,
         receivers=receivers,
-        content=content
+        content=content,
+        require_same_project=True
     )
     # 发送后回到主控台（Web 端暂不展示无效接收人提示）
     return RedirectResponse(url="/dashboard", status_code=303)
@@ -652,6 +427,7 @@ class FeedbackRequest(BaseModel):
 async def send_feedback(req: FeedbackRequest, authorization: str = Header(None)):
     """
     [新增原因]: 提供超级短路径接口，允许任何AI Agent便捷地发送反馈建议，协助TUZHAN自我迭代。
+    [修改原因]: 移除"必须属于某个项目"的限制，确保所有人（包括无项目人员）都能给 TUZHAN 提反馈。
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
@@ -662,11 +438,7 @@ async def send_feedback(req: FeedbackRequest, authorization: str = Header(None))
     if not sender_emp_id:
         raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
 
-    user_info = db_manager.get_user_info(sender_emp_id)
-    projects_json = user_info.get("projects", "[]") if user_info else "[]"
-    if projects_json == "[]" or not projects_json:
-        raise HTTPException(status_code=403, detail="您不属于任何项目，无法与任何人通信")
-
+    # 允许任何人向 TUZHAN 发送反馈，不再校验是否在项目组中
     try:
         msg_ids, _ = message_manager.send_message(
             sender=sender_emp_id,
@@ -792,7 +564,8 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
         msg_ids, invalid_receivers = message_manager.send_message(
             sender=sender_emp_id,
             receivers=receivers,
-            content=req.content
+            content=req.content,
+            require_same_project=True
         )
         result = {"status": "success", "msg_ids": msg_ids, "message": "消息已成功存入数据库"}
         if invalid_receivers:
