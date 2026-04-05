@@ -22,4 +22,4 @@ ENV/
 node_modules/
 
 # 个人专属技能配置，不提交到项目共享仓库中
-.trae/skills/tuzhan-feedback/
+tuzhan_workspace/
