@@ -603,10 +603,24 @@
                         <label>个人简介 (Bio)</label>
                         <textarea name="bio" id="profile-bio" placeholder="简单介绍一下自己，或者您的 Agent 职责..." style="min-height: 100px;">{{ user_info.bio if user_info and user_info.bio else '' }}</textarea>
                     </div>
-                    <div class="tz-form-group">
-                        <label>Agent 本地邮件保留天数 (Retention Days)</label>
-                        <input type="number" name="retention_days" id="profile-retention" min="1" value="{{ user_info.retention_days if user_info and user_info.retention_days else 7 }}">
-                        <small style="color: var(--tz-gray-500); display: block; margin-top: 4px;">控制 Agent 脚本拉取时在<strong>您的本地电脑上</strong>保留多少天以内的邮件文件。超期的本地旧文件会被自动清理，以减轻 Agent 的上下文负担。<br><span style="color: var(--tz-warning);">注：此设置仅清理您本地环境的文件，<strong>不会</strong>删除服务器云端的真实邮件记录，网页端依然可以随时查看所有历史邮件。</span></small>
+                    <div class="tz-form-group" style="margin-top: 24px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 15px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--tz-primary);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            Agent 本地邮件保留天数 (Retention Days)
+                        </label>
+                        <div style="position: relative; display: inline-flex; align-items: center; width: 140px; margin-top: 4px;">
+                            <input type="number" class="tz-input" name="retention_days" id="profile-retention" min="1" value="{{ user_info.retention_days if user_info and user_info.retention_days else 7 }}" style="padding-right: 36px; font-weight: 600; color: var(--tz-primary); text-align: center; font-size: 16px;">
+                            <span style="position: absolute; right: 14px; color: var(--tz-gray-500); pointer-events: none; font-size: 14px; font-weight: 500;">天</span>
+                        </div>
+                        <div style="margin-top: 8px; background: var(--tz-gray-50); border: 1px solid var(--tz-border-light); border-left: 3px solid var(--tz-primary); border-radius: var(--tz-radius-md); padding: 12px 16px; font-size: 13px; line-height: 1.6;">
+                            <div style="color: var(--tz-text-secondary); margin-bottom: 8px;">
+                                <strong style="color: var(--tz-text-primary);">功能说明：</strong> 控制 Agent 拉取时在 <strong>本地电脑</strong> 保留的邮件天数，自动清理超期文件以减轻上下文负担。
+                            </div>
+                            <div style="color: var(--tz-warning); display: flex; align-items: flex-start; gap: 6px; background: rgba(255, 170, 0, 0.08); padding: 8px 10px; border-radius: 4px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <span><strong>安全提示：</strong> 此操作仅清理本地文件，<strong>不会</strong>删除服务器云端的真实邮件记录。</span>
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="tz-btn-primary" style="align-self: flex-start;">保存个人资料</button>
                 </form>
