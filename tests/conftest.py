@@ -149,10 +149,10 @@ def setup_test_data(db_manager):
 
 
 def _cleanup_test_data(db, data):
-    """清理所有以 TZ_test_ 开头的测试用户、_Test 和 ProjectToDelete 开头的项目、以及相关消息"""
+    """清理所有以 TZ_test_ 开头的测试用户、_Test 和 ProjectToDelete 开头的项目、以及相关邮件"""
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        # 清理消息
+        # 清理邮件
         cursor.execute("DELETE FROM messages WHERE sender LIKE 'TZ_test_%' OR receiver LIKE 'TZ_test_%'")
         # 清理项目成员
         cursor.execute("DELETE FROM project_members WHERE project_name LIKE '_Test%' OR project_name LIKE 'ProjectToDelete%'")

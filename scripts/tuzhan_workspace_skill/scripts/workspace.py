@@ -49,10 +49,10 @@ def list_projects():
 
 def send_message(target_emp_id, content):
     if not target_emp_id or not content:
-        print("发送失败：目标工号和消息内容不能为空。")
+        print("发送失败：目标工号和邮件内容不能为空。")
         return
 
-    print(f"正在准备向 {target_emp_id} 发送消息...")
+    print(f"正在准备向 {target_emp_id} 发送邮件...")
     payload = json.dumps({
         "receiver": target_emp_id,
         "content": content
@@ -60,9 +60,9 @@ def send_message(target_emp_id, content):
     
     send_resp = request("/messages/send", method="POST", data=payload)
     if send_resp and send_resp.get("status") == "success":
-        print(f"消息已成功发送给 {target_emp_id}！")
+        print(f"邮件已成功发送给 {target_emp_id}！")
     else:
-        print(f"消息发送失败: {send_resp}")
+        print(f"邮件发送失败: {send_resp}")
 
 def send_feedback(content):
     if not content:
@@ -104,7 +104,7 @@ def sync_inbox_outbox():
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(msg["content"])
                 count += 1
-        print(f"已将 {count} 条新的发件箱消息保存到 {outbox_dir}")
+        print(f"已将 {count} 条新的发件箱邮件保存到 {outbox_dir}")
     else:
         print("拉取发件箱失败")
     
@@ -123,16 +123,16 @@ def sync_inbox_outbox():
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(msg["content"])
                 
-                # [修改原因]: Agent拉取消息并保存本地后，必须调用ACK接口将消息标记为已读，防止重复处理和未读堆积
+                # [修改原因]: Agent拉取邮件并保存本地后，必须调用ACK接口将邮件标记为已读，防止重复处理和未读堆积
                 if msg_id:
                     ack_resp = request(f"/messages/{msg_id}/read", method="POST")
                     if ack_resp and ack_resp.get("status") == "success":
-                        print(f"消息 {msg_id} 已成功保存并标记为已读。")
+                        print(f"邮件 {msg_id} 已成功保存并标记为已读。")
                     else:
-                        print(f"消息 {msg_id} 已保存，但标记已读失败。")
+                        print(f"邮件 {msg_id} 已保存，但标记已读失败。")
                         
                 count += 1
-        print(f"已将 {count} 条新的收件箱消息保存到 {inbox_dir}")
+        print(f"已将 {count} 条新的收件箱邮件保存到 {inbox_dir}")
     else:
         print("拉取收件箱失败")
 
@@ -143,12 +143,12 @@ def main():
         print("示例: export TUZHAN_API_KEY='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'")
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="TUZHAN 协作中心命令行工具")
+    parser = argparse.ArgumentParser(description="TUZHAN Agent协作中心命令行工具")
     parser.add_argument("--list", action="store_true", help="拉取并查看当前项目和同事名单")
-    parser.add_argument("--send", action="store_true", help="发送消息")
+    parser.add_argument("--send", action="store_true", help="发送邮件")
     parser.add_argument("--feedback", action="store_true", help="给 TUZHAN 发送产品迭代建议")
-    parser.add_argument("--target_emp_id", type=str, help="目标同事的工号 (发送消息时必填)")
-    parser.add_argument("--content", type=str, help="Markdown 格式的消息正文 (发送消息或反馈时必填)")
+    parser.add_argument("--target_emp_id", type=str, help="目标同事的工号 (发送邮件时必填)")
+    parser.add_argument("--content", type=str, help="Markdown 格式的邮件正文 (发送邮件或反馈时必填)")
     
     args = parser.parse_args()
 
@@ -156,7 +156,7 @@ def main():
         list_projects()
     elif args.send:
         if not args.target_emp_id or not args.content:
-            print("错误: 发送消息时必须提供 --target_emp_id 和 --content 参数。")
+            print("错误: 发送邮件时必须提供 --target_emp_id 和 --content 参数。")
             sys.exit(1)
         send_message(args.target_emp_id, args.content)
     elif args.feedback:

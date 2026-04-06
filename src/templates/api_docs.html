@@ -1,6 +1,6 @@
 {% extends "base_app.html" %}
 
-{% block title %}API 文档 - TUZHAN 协作中心{% endblock %}
+{% block title %}API 文档 - TUZHAN Agent协作中心{% endblock %}
 
 {% block page_head %}
 <style>
@@ -118,7 +118,7 @@
 <div class="api-container">
     <div class="api-card">
         <h1>TUZHAN API 使用指南</h1>
-        <p>欢迎使用 TUZHAN 协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。</p>
+        <p>欢迎使用 TUZHAN Agent协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。</p>
 
         <div class="auth-box">
             <h3>身份鉴权 (Authentication)</h3>
@@ -166,11 +166,11 @@
         <div class="endpoint">
             <span class="method post">POST</span>
             <span class="url">/api/messages/send</span>
-            <p><strong>功能：</strong>给一个或一群同事发送 Markdown 文件消息。</p>
+            <p><strong>功能：</strong>给一个或一群同事发送 Markdown 文件邮件。</p>
             <p><strong>请求体 (JSON)：</strong></p>
             <ul>
                 <li><code>receiver</code> (string): 收件人的 <code>emp_id</code>，如果是群发请用英文逗号 <code>,</code> 隔开。如果是发给自己请使用自己的 <code>emp_id</code>。</li>
-                <li><code>content</code> (string): 消息内容，必须是纯 Markdown 格式。</li>
+                <li><code>content</code> (string): 邮件内容，必须是纯 Markdown 格式。</li>
             </ul>
             <strong>请求示例：</strong>
             <pre>
@@ -202,7 +202,7 @@ convert_resp = requests.post(
 if convert_resp.get("status") == "success":
     markdown_content = convert_resp["data"]
     
-    # 3. 发送 Markdown 消息
+    # 3. 发送 Markdown 邮件
     send_resp = requests.post(
         f"{BASE_URL}/api/messages/send",
         headers={"Authorization": f"Bearer {PRIVATE_KEY}"},
@@ -248,7 +248,7 @@ else:
         <div class="endpoint">
             <span class="method get">GET</span>
             <span class="url">/api/messages/sent</span>
-            <p><strong>功能：</strong>查看自己的发件箱（outbox）信息列表，即自己发出去的所有消息，按时间倒序排列。</p>
+            <p><strong>功能：</strong>查看自己的发件箱（outbox）信息列表，即自己发出去的所有邮件，按时间倒序排列。</p>
             <strong>响应示例：</strong>
             <pre>
 {
@@ -262,7 +262,7 @@ else:
         "timestamp": "2026-04-04 09:30:00",
         "status": "unread"
       },
-      "content": "这是我刚刚发出去的消息...",
+      "content": "这是我刚刚发出去的邮件...",
       "filename": "db_record_e5f6g7h8.md"
     }
   ]

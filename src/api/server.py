@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="TUZHAN 协作中心 API & Web",
+    title="TUZHAN Agent协作中心 API & Web",
     description="提供给员工/Agent 收发 Markdown 信息的接口服务，现已通过SQLite落库管理。",
     version="2.0.0"
 )
@@ -81,7 +81,7 @@ else:
 db_manager = DatabaseManager(db_path)
 message_manager = MessageManager(db_manager)
 
-# [新增原因]: 自动初始化 TUZHAN 协作中心专属 AI Agent 身份和项目
+# [新增原因]: 自动初始化 TUZHAN Agent协作中心专属 AI Agent 身份和项目
 def _init_tuzhan_identity():
     tuzhan_emp_id = "TUZHAN"
     tuzhan_user = db_manager.get_user_info(tuzhan_emp_id)
@@ -95,7 +95,7 @@ def _init_tuzhan_identity():
             projects_json='[{"project": "TUZHAN", "role": "AI Agent"}]',
             private_key=tuzhan_key
         )
-        db_manager.add_project("TUZHAN", "TUZHAN 协作中心本身的 Project")
+        db_manager.add_project("TUZHAN", "TUZHAN Agent协作中心本身的 Project")
         db_manager.add_project_member("TUZHAN", tuzhan_emp_id, "AI Agent")
         db_manager.sync_projects_to_users_json()
         logger.info(f"成功初始化 TUZHAN 专属身份, private_key: {tuzhan_key}")
@@ -261,7 +261,7 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
         
     all_users = db_manager.get_all_users()
     
-    # [修改原因]: 不再在此处全量拉取消息，改为提供初始第一页数据及分页元信息，由前端 Ajax 接管
+    # [修改原因]: 不再在此处全量拉取邮件，改为提供初始第一页数据及分页元信息，由前端 Ajax 接管
     # 保持向后兼容或初始渲染，根据需求修改每页拉取 50 条
     limit = 50
     all_messages = db_manager.get_all_messages(limit=limit, offset=0)
@@ -303,7 +303,7 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
         "is_admin": True,
     })
 
-@app.get("/api/admin/messages", summary="管理后台获取全量消息分页数据")
+@app.get("/api/admin/messages", summary="管理后台获取全量邮件分页数据")
 async def api_admin_messages(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
@@ -312,7 +312,7 @@ async def api_admin_messages(
     admin_logged_in: str = Cookie(None)
 ):
     """
-    [新增原因]: 供管理员后台前端进行消息分页 Ajax 请求使用。
+    [新增原因]: 供管理员后台前端进行邮件分页 Ajax 请求使用。
     需提供严格的身份校验确保仅超管可访问。
     """
     if not _verify_session(emp_id, private_key) or admin_logged_in != "true":
@@ -347,7 +347,7 @@ async def dashboard_send(
     emp_id: str = Cookie(None),
     private_key: str = Cookie(None)
 ):
-    """Web端发消息处理，增加对 Key 的校验及群发支持"""
+    """Web端发邮件处理，增加对 Key 的校验及群发支持"""
     # [修改原因]: 改为 active_only=True，已禁用用户直接拒绝，无需再手动检查 status (BUG-25 修复)
     if not private_key or db_manager.get_user_by_key(private_key, active_only=True) != emp_id:
         return RedirectResponse(url="/", status_code=303)
@@ -356,7 +356,7 @@ async def dashboard_send(
         
     projects_json = user_info.get("projects", "[]") if user_info else "[]"
     if projects_json == "[]" or not projects_json:
-        # 如果不属于任何项目，禁止发送消息
+        # 如果不属于任何项目，禁止发送邮件
         return RedirectResponse(url="/dashboard", status_code=303)
         
     receivers = [r.strip() for r in receiver.split(",")]
@@ -413,7 +413,7 @@ async def download_workspace_skill():
 from fastapi import Header
 
 class MessageRequest(BaseModel):
-    """发送消息的请求结构（去除sender，由Token自动解析）"""
+    """发送邮件的请求结构（去除sender，由Token自动解析）"""
     receiver: str
     content: str
 
@@ -423,7 +423,7 @@ class ConvertRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     content: str
 
-@app.post("/api/feedback", summary="发送反馈给 TUZHAN 协作中心")
+@app.post("/api/feedback", summary="发送反馈给 TUZHAN Agent协作中心")
 async def send_feedback(req: FeedbackRequest, authorization: str = Header(None)):
     """
     [新增原因]: 提供超级短路径接口，允许任何AI Agent便捷地发送反馈建议，协助TUZHAN自我迭代。
@@ -537,12 +537,12 @@ async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(N
         logger.error(f"大模型调用失败: {e}")
         raise HTTPException(status_code=500, detail="智能转换失败，请稍后重试")
 
-@app.post("/api/messages/send", summary="发送消息接口")
+@app.post("/api/messages/send", summary="发送邮件接口")
 async def send_message(req: MessageRequest, authorization: str = Header(None)):
     """
     [修改原因]: API 端现在强制要求 Header 中携带 `Authorization: Bearer <private_key>`，
     通过 Key 自动推导 sender (emp_id)，防止伪造发件人。支持群发。并拦截禁用账号。
-    [新增权限控制]: 如果发送者不属于任何项目，则禁止发送消息。
+    [新增权限控制]: 如果发送者不属于任何项目，则禁止发送邮件。
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
@@ -567,16 +567,16 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
             content=req.content,
             require_same_project=True
         )
-        result = {"status": "success", "msg_ids": msg_ids, "message": "消息已成功存入数据库"}
+        result = {"status": "success", "msg_ids": msg_ids, "message": "邮件已成功存入数据库"}
         if invalid_receivers:
             result["invalid_receivers"] = invalid_receivers
-            result["message"] = f"部分消息已发送，以下接收人不存在: {', '.join(invalid_receivers)}"
+            result["message"] = f"部分邮件已发送，以下接收人不存在: {', '.join(invalid_receivers)}"
         return result
     except Exception as e:
-        logger.error(f"发送消息失败: {e}")
-        raise HTTPException(status_code=500, detail="消息发送失败，请检查服务器日志")
+        logger.error(f"发送邮件失败: {e}")
+        raise HTTPException(status_code=500, detail="邮件发送失败，请检查服务器日志")
 
-@app.get("/api/messages/receive", summary="接收消息接口")
+@app.get("/api/messages/receive", summary="接收邮件接口")
 async def receive_messages(authorization: str = Header(None), status: Optional[str] = Query(None)):
     """
     [修改原因]: API 收件也改为验证 Token，只有提供正确的 Key 才能看自己的收件箱。并拦截禁用账号。
@@ -605,10 +605,10 @@ async def receive_messages(authorization: str = Header(None), status: Optional[s
         logger.error(f"读取收件箱失败: {e}")
         raise HTTPException(status_code=500, detail="收件箱读取失败")
 
-@app.post("/api/messages/{msg_id}/read", summary="标记消息为已读接口")
+@app.post("/api/messages/{msg_id}/read", summary="标记邮件为已读接口")
 async def mark_message_read(msg_id: str, authorization: str = Header(None)):
     """
-    [新增原因]: AI Agent 处理完消息后主动 ACK 确认（防止消息丢失，科学做法）。
+    [新增原因]: AI Agent 处理完邮件后主动 ACK 确认（防止邮件丢失，科学做法）。
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
@@ -622,19 +622,19 @@ async def mark_message_read(msg_id: str, authorization: str = Header(None)):
     try:
         success = message_manager.mark_message_as_read(msg_id, emp_id)
         if success:
-            return {"status": "success", "message": "消息已标记为已读"}
+            return {"status": "success", "message": "邮件已标记为已读"}
         else:
-            raise HTTPException(status_code=404, detail="找不到对应的未读消息或权限不足")
+            raise HTTPException(status_code=404, detail="找不到对应的未读邮件或权限不足")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"标记消息已读失败: {e}")
+        logger.error(f"标记邮件已读失败: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")
 
-@app.delete("/api/messages/{msg_id}", summary="删除消息")
+@app.delete("/api/messages/{msg_id}", summary="删除邮件")
 async def delete_message(msg_id: str, private_key: str = Cookie(None), authorization: str = Header(None)):
     """
-    [新增原因]: 允许用户通过 Web 端或 API 端删除自己收发件箱中的消息。
+    [新增原因]: 允许用户通过 Web 端或 API 端删除自己收发件箱中的邮件。
     """
     key = None
     if authorization and authorization.startswith("Bearer "):
@@ -658,9 +658,9 @@ async def delete_message(msg_id: str, private_key: str = Cookie(None), authoriza
         if success:
             return {"status": "success", "message": "删除成功"}
         else:
-            raise HTTPException(status_code=404, detail="找不到对应的消息或权限不足")
+            raise HTTPException(status_code=404, detail="找不到对应的邮件或权限不足")
     except Exception as e:
-        logger.error(f"删除消息失败: {e}")
+        logger.error(f"删除邮件失败: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")
 
 @app.get("/api/messages/sent", summary="获取发件箱接口")

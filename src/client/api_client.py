@@ -30,7 +30,7 @@ class TuzhanClient:
     """
     轻量级的命令行客户端程序：
     允许任何不在 TUZHAN 仓库（无直接文件读写权限）的人员和 Agent，
-    仅通过向服务器发起 HTTP 请求来收发信息。
+    仅通过向服务器发起 HTTP 请求来收发送邮件息。
     """
     
     def __init__(self, base_url=None, env="development"):
@@ -65,7 +65,7 @@ class TuzhanClient:
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json().get("data", [])
-                print(f"\n--- 收件箱 (共 {len(data)} 封消息) ---")
+                print(f"\n--- 收件箱 (共 {len(data)} 封邮件) ---")
                 for msg in data:
                     meta = msg.get("metadata", {})
                     msg_id = meta.get("id")
@@ -74,29 +74,29 @@ class TuzhanClient:
                     print(f"内容:\n{msg.get('content')}")
                     print("-" * 40)
                     
-                    # [修改原因]: API客户端读取收件箱后，自动将消息标记为已读，避免后续堆积和重复处理
+                    # [修改原因]: API客户端读取收件箱后，自动将邮件标记为已读，避免后续堆积和重复处理
                     if meta.get("status") == "unread" and msg_id:
                         ack_url = f"{self.base_url}/api/messages/{msg_id}/read"
                         ack_resp = requests.post(ack_url, headers=headers)
                         if ack_resp.status_code == 200:
-                            print(f"[系统] 消息 {msg_id} 已标记为已读")
+                            print(f"[系统] 邮件 {msg_id} 已标记为已读")
                         else:
-                            print(f"[系统] 消息 {msg_id} 标记已读失败")
+                            print(f"[系统] 邮件 {msg_id} 标记已读失败")
             else:
                 print(f"读取失败 [{response.status_code}]:", response.text)
         except requests.exceptions.RequestException as e:
             print(f"请求接收失败: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description="TUZHAN 协作中心客户端 (API 封装)")
+    parser = argparse.ArgumentParser(description="TUZHAN Agent协作中心客户端 (API 封装)")
     parser.add_argument("--url", help="API 服务器地址 (如果不填，将从 settings.yaml 根据环境读取)")
     subparsers = parser.add_subparsers(dest="command", help="可用命令: send, receive")
 
     # send 子命令
-    send_parser = subparsers.add_parser("send", help="发送消息")
+    send_parser = subparsers.add_parser("send", help="发送邮件")
     send_parser.add_argument("--key", required=True, help="你的 Private Key (身份凭证)")
     send_parser.add_argument("--receiver", required=True, help="接收方")
-    send_parser.add_argument("--content", required=True, help="消息正文内容 (支持 Markdown 语法)")
+    send_parser.add_argument("--content", required=True, help="邮件正文内容 (支持 Markdown 语法)")
 
     # receive 子命令
     receive_parser = subparsers.add_parser("receive", help="查看收件箱")

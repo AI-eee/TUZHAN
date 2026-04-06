@@ -1,7 +1,7 @@
 """
-员工接口 - 消息收发测试
+员工接口 - 邮件收发测试
 ========================
-测试 Agent/员工通过 API 发送和接收 Markdown 消息的完整流程。
+测试 Agent/员工通过 API 发送和接收 Markdown 邮件的完整流程。
 """
 import pytest
 import requests
@@ -15,10 +15,10 @@ class TestSendMessage:
     """POST /api/messages/send"""
 
     def test_send_message_success(self, api_url, user1, user2):
-        """员工应能成功发送消息给同项目成员"""
+        """员工应能成功发送邮件给同项目成员"""
         resp = requests.post(f"{api_url}/messages/send", headers=_auth(user1["key"]), json={
             "receiver": user2["emp_id"],
-            "content": "# 测试消息\n\n这是一条自动化测试发送的 Markdown 消息。",
+            "content": "# 测试邮件\n\n这是一条自动化测试发送的 Markdown 邮件。",
         })
         assert resp.status_code == 200
         data = resp.json()
@@ -29,7 +29,7 @@ class TestSendMessage:
         """支持逗号分隔的多接收人群发"""
         resp = requests.post(f"{api_url}/messages/send", headers=_auth(user1["key"]), json={
             "receiver": f"{user2['emp_id']},{admin_user['emp_id']}",
-            "content": "# 群发测试\n\n这条消息群发给两个人。",
+            "content": "# 群发测试\n\n这条邮件群发给两个人。",
         })
         assert resp.status_code == 200
         assert len(resp.json()["msg_ids"]) == 2
@@ -38,7 +38,7 @@ class TestSendMessage:
         """发送给不存在的用户应返回 invalid_receivers"""
         resp = requests.post(f"{api_url}/messages/send", headers=_auth(user1["key"]), json={
             "receiver": "TZ_NOT_EXIST_USER",
-            "content": "这条消息发不出去",
+            "content": "这条邮件发不出去",
         })
         assert resp.status_code == 200
         data = resp.json()
@@ -83,21 +83,21 @@ class TestSendMessage:
         assert resp2.json()["status"] == "success"
 
     def test_send_without_token_returns_401(self, api_url, user2):
-        """未携带 Token 发送消息应返回 401"""
+        """未携带 Token 发送邮件应返回 401"""
         resp = requests.post(f"{api_url}/messages/send", json={
             "receiver": user2["emp_id"], "content": "no auth",
         })
         assert resp.status_code == 401
 
     def test_noproj_user_cannot_send(self, api_url, noproj_user, user1):
-        """不属于任何项目的员工不能发送消息"""
+        """不属于任何项目的员工不能发送邮件"""
         resp = requests.post(f"{api_url}/messages/send", headers=_auth(noproj_user["key"]), json={
             "receiver": user1["emp_id"], "content": "我没有项目",
         })
         assert resp.status_code == 403
 
     def test_disabled_user_cannot_send(self, api_url, disabled_user, user1):
-        """被禁用的员工不能发送消息"""
+        """被禁用的员工不能发送邮件"""
         resp = requests.post(f"{api_url}/messages/send", headers=_auth(disabled_user["key"]), json={
             "receiver": user1["emp_id"], "content": "我被禁用了",
         })
@@ -125,7 +125,7 @@ class TestReceiveMessage:
         assert len(data["data"]) > 0
 
     def test_inbox_message_structure(self, api_url, user2):
-        """收件箱消息应包含正确的 metadata 和 content 结构"""
+        """收件箱邮件应包含正确的 metadata 和 content 结构"""
         resp = requests.get(f"{api_url}/messages/receive", headers=_auth(user2["key"]))
         msg = resp.json()["data"][0]
         assert "metadata" in msg
@@ -161,7 +161,7 @@ class TestSentMessages:
         assert len(data["data"]) > 0
 
     def test_sent_message_shows_correct_sender(self, api_url, user1):
-        """发件箱中的消息 sender 应为自己"""
+        """发件箱中的邮件 sender 应为自己"""
         resp = requests.get(f"{api_url}/messages/sent", headers=_auth(user1["key"]))
         for msg in resp.json()["data"]:
             assert msg["metadata"]["sender"] == user1["emp_id"]

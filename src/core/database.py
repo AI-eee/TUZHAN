@@ -117,7 +117,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # messages 表：记录Markdown消息
+            # messages 表：记录Markdown邮件
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS messages (
                     id TEXT PRIMARY KEY,
@@ -314,7 +314,7 @@ class DatabaseManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_all_messages(self, limit: Optional[int] = None, offset: Optional[int] = None) -> list:
-        """[修改原因]：为管理员后台获取全站所有的消息，增加分页支持以避免全量拉取卡顿"""
+        """[修改原因]：为管理员后台获取全站所有的邮件，增加分页支持以避免全量拉取卡顿"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             if limit is not None and offset is not None:
@@ -324,7 +324,7 @@ class DatabaseManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_messages_total_count(self) -> int:
-        """[新增原因]：为管理员后台分页功能提供消息总数统计"""
+        """[新增原因]：为管理员后台分页功能提供邮件总数统计"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) as count FROM messages")
@@ -332,7 +332,7 @@ class DatabaseManager:
             return row["count"] if row else 0
 
     def mark_message_as_read(self, msg_id: str, receiver: str) -> bool:
-        """[新增原因]：为 AI Agent 增加消息 ACK 确认机制，标记消息为已读"""
+        """[新增原因]：为 AI Agent 增加邮件 ACK 确认机制，标记邮件为已读"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -343,7 +343,7 @@ class DatabaseManager:
             return cursor.rowcount > 0
 
     def delete_message(self, msg_id: str, user: str) -> bool:
-        """[新增原因]：允许用户软删除自己收发件箱的消息"""
+        """[新增原因]：允许用户软删除自己收发件箱的邮件"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -366,7 +366,7 @@ class DatabaseManager:
             return [dict(row) for row in cursor.fetchall()]
 
     def save_message(self, msg_id: str, sender: str, receiver: str, content: str) -> bool:
-        """保存发送的消息"""
+        """保存发送的邮件"""
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -379,8 +379,8 @@ class DatabaseManager:
                 conn.commit()
                 return True
             except sqlite3.IntegrityError:
-                # [修改原因]: 处理消息 ID 重复（PRIMARY KEY 碰撞），避免 500 崩溃 (BUG-34 修复)
-                logger.warning(f"消息保存失败: msg_id={msg_id} 已存在")
+                # [修改原因]: 处理邮件 ID 重复（PRIMARY KEY 碰撞），避免 500 崩溃 (BUG-34 修复)
+                logger.warning(f"邮件保存失败: msg_id={msg_id} 已存在")
                 return False
             
     def ensure_user_exists(self, emp_id: str, nickname: Optional[str] = None, projects_json: str = "[]", private_key: Optional[str] = None):

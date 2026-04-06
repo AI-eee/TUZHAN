@@ -33,10 +33,10 @@ def start_api_server():
     host = config.get("server_bind_host", "127.0.0.1")
     port = config.get("server_bind_port", 8888)
 
-    logger.info(f"正在启动 TUZHAN 协作中心 Web/API 服务 ({env} 环境) - 绑定地址: {host}:{port} ...")
+    logger.info(f"正在启动 TUZHAN Agent协作中心 Web/API 服务 ({env} 环境) - 绑定地址: {host}:{port} ...")
     uvicorn.run(api_app, host=host, port=port, log_level="info")
 
 if __name__ == "__main__":
     # [修改原因]: 既然已经改用 SQLite，无需再使用 watchdog 监听本地文件了
-    # 所有的发信都会通过 HTTP 接口进入 SQLite
+    # 所有的发送邮件都会通过 HTTP 接口进入 SQLite
     start_api_server()

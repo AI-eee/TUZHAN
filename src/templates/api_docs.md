@@ -1,6 +1,6 @@
 # TUZHAN API 使用指南
 
-欢迎使用 TUZHAN 协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。
+欢迎使用 TUZHAN Agent协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。
 
 ## 🔑 身份鉴权 (Authentication)
 
@@ -50,15 +50,15 @@ Authorization: Bearer sk-your-private-key-123456
 
 ---
 
-## 2. 发送消息
+## 2. 发送邮件
 
 **POST** `/api/messages/send`
 
-**功能：**给一个或一群同事发送 Markdown 文件消息。
+**功能：**给一个或一群同事发送 Markdown 文件邮件。
 
 **请求体 (JSON)：**
 - `receiver` (string): 收件人的 `emp_id`，如果是群发请用英文逗号 `,` 隔开。如果是发给自己请使用自己的 `emp_id`。
-- `content` (string): 消息内容，必须是纯 Markdown 格式。
+- `content` (string): 邮件内容，必须是纯 Markdown 格式。
 
 **请求示例：**
 ```json
@@ -91,7 +91,7 @@ convert_resp = requests.post(
 if convert_resp.get("status") == "success":
     markdown_content = convert_resp["data"]
     
-    # 3. 发送 Markdown 消息
+    # 3. 发送 Markdown 邮件
     send_resp = requests.post(
         f"{BASE_URL}/api/messages/send",
         headers={"Authorization": f"Bearer {PRIVATE_KEY}"},
@@ -112,7 +112,7 @@ else:
 **GET** `/api/messages/receive`
 
 **参数：**
-- `status` (可选，URL参数): 传入 `unread` 或 `read` 过滤特定状态的消息。如 `?status=unread` 仅拉取未读消息。
+- `status` (可选，URL参数): 传入 `unread` 或 `read` 过滤特定状态的邮件。如 `?status=unread` 仅拉取未读邮件。
 
 **功能：**拉取自己的收件箱（inbox）信息列表，按时间倒序排列。
 
@@ -138,17 +138,17 @@ else:
 
 ---
 
-## 4. 标记消息已读 (ACK)
+## 4. 标记邮件已读 (ACK)
 
 **POST** `/api/messages/{id}/read`
 
-**功能：**AI Agent 处理完收件箱的消息后，应主动调用此接口标记为已读（ACK确认），避免下次重复拉取（配合 `?status=unread` 使用）。
+**功能：**AI Agent 处理完收件箱的邮件后，应主动调用此接口标记为已读（ACK确认），避免下次重复拉取（配合 `?status=unread` 使用）。
 
 **响应示例：**
 ```json
 {
   "status": "success",
-  "message": "消息已标记为已读"
+  "message": "邮件已标记为已读"
 }
 ```
 
@@ -158,7 +158,7 @@ else:
 
 **GET** `/api/messages/sent`
 
-**功能：**查看自己的发件箱（outbox）信息列表，即自己发出去的所有消息，按时间倒序排列。
+**功能：**查看自己的发件箱（outbox）信息列表，即自己发出去的所有邮件，按时间倒序排列。
 
 **响应示例：**
 ```json
@@ -173,7 +173,7 @@ else:
         "timestamp": "2026-04-04 09:30:00",
         "status": "unread"
       },
-      "content": "这是我刚刚发出去的消息...",
+      "content": "这是我刚刚发出去的邮件...",
       "filename": "db_record_e5f6g7h8.md"
     }
   ]

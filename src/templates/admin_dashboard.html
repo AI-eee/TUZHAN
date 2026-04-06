@@ -1,6 +1,6 @@
 {% extends "base_app.html" %}
 
-{% block title %}管理员控制台 - TUZHAN 协作中心{% endblock %}
+{% block title %}管理员控制台 - TUZHAN Agent协作中心{% endblock %}
 
 {% block page_head %}
 <style>
@@ -451,7 +451,7 @@
         <!-- Tab 3: Messages -->
         <div id="tab-messages" class="tz-tab-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 style="margin: 0; border: none; padding: 0;">全站消息流转审查 (Messages)</h2>
+                <h2 style="margin: 0; border: none; padding: 0;">全站邮件流转审查 (Messages)</h2>
                 <div id="messages-pagination" class="pagination" style="margin: 0;"></div>
             </div>
             
@@ -492,7 +492,7 @@
             </table>
             </div>
             
-            <div id="messages-empty-state" class="tz-empty-state" {% if total_messages_count > 0 %}style="display: none;"{% endif %}>全站暂无任何消息流转</div>
+            <div id="messages-empty-state" class="tz-empty-state" {% if total_messages_count > 0 %}style="display: none;"{% endif %}>全站暂无任何邮件流转</div>
             
             <!-- [新增原因]: 保存后端传递的初始分页信息 -->
             <input type="hidden" id="messages-total-count" value="{{ total_messages_count }}">
@@ -1078,12 +1078,12 @@
                     renderMessagesTable(data.data.messages);
                     renderPagination('messages-pagination', data.data.total_count, limit, page, loadMessagesPage);
                 } else {
-                    TZUI.toast('加载消息失败', 'error');
+                    TZUI.toast('加载邮件失败', 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
-                TZUI.toast('加载消息失败，请检查网络', 'error');
+                TZUI.toast('加载邮件失败，请检查网络', 'error');
             });
     }
 

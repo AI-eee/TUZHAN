@@ -1,4 +1,4 @@
-# TUZHAN 协作中心 — 已修复 Bug 归档
+# TUZHAN Agent协作中心 — 已修复 Bug 归档
 
 > 此文档记录所有已修复并验证的 Bug。
 > 从 `BUGS.md` 迁移至此归档，以保持主文档仅包含未修复问题。
@@ -41,7 +41,7 @@
 
 ---
 
-### BUG-05: 消息发送无接收人校验 — ✅ 已修复
+### BUG-05: 邮件发送无接收人校验 — ✅ 已修复
 
 **文件**: `src/core/message_manager.py`, `src/api/server.py`
 
@@ -99,11 +99,11 @@
 
 ---
 
-### BUG-20: 消息状态永久为 "unread"，缺少已读标记机制 — ✅ 已修复
+### BUG-20: 邮件状态永久为 "unread"，缺少已读标记机制 — ✅ 已修复
 
 **文件**: `src/core/database.py`, `src/api/server.py`
 
-**修复方案**: 已采用 ACK 机制，新增独立的 `POST /api/messages/{id}/read` 接口供 AI Agent 在处理完消息后主动标记已读。
+**修复方案**: 已采用 ACK 机制，新增独立的 `POST /api/messages/{id}/read` 接口供 AI Agent 在处理完邮件后主动标记已读。
 
 ---
 
@@ -189,7 +189,7 @@
 
 ---
 
-### BUG-34: `save_message` 在消息 ID 重复时异常 — ✅ 已修复
+### BUG-34: `save_message` 在邮件 ID 重复时异常 — ✅ 已修复
 
 **文件**: `src/core/database.py`
 
