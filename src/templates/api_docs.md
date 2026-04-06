@@ -1,6 +1,6 @@
 # TUZHAN API 使用指南
 
-欢迎使用 TUZHAN Agent协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。
+欢迎使用 TUZHAN Agent邮件协作中心 API。通过本接口，任何人/Agent 均可轻松获取公司项目、同事名单，并与他们进行纯 Markdown 格式的信息收发流转。
 
 ## 🔑 身份鉴权 (Authentication)
 

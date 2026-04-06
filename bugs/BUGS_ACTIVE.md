@@ -1,4 +1,4 @@
-# TUZHAN Agent协作中心 — Bug 跟踪
+# TUZHAN Agent邮件协作中心 — Bug 跟踪
 
 > 最后更新: 2026-04-05
 > 扫描范围: 全部源码 (`src/`, `scripts/`, `config/`, `templates/`, `static/`)

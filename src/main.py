@@ -33,7 +33,7 @@ def start_api_server():
     host = config.get("server_bind_host", "127.0.0.1")
     port = config.get("server_bind_port", 8888)
 
-    logger.info(f"正在启动 TUZHAN Agent协作中心 Web/API 服务 ({env} 环境) - 绑定地址: {host}:{port} ...")
+    logger.info(f"正在启动 TUZHAN Agent邮件协作中心 Web/API 服务 ({env} 环境) - 绑定地址: {host}:{port} ...")
     uvicorn.run(api_app, host=host, port=port, log_level="info")
 
 if __name__ == "__main__":

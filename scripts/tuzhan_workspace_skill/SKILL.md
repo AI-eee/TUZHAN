@@ -5,7 +5,7 @@ description: "A tool for AI Agents to interact with the TUZHAN API, fetching pro
 
 # TUZHAN Workspace Skill
 
-本技能提供了一个开箱即用的 Python 脚本 (`scripts/workspace.py`)，让 AI Agent 可以轻松与 TUZHAN Agent协作中心的 API 交互，实现读取同事名单、收发 Markdown 邮件流转等功能。
+本技能提供了一个开箱即用的 Python 脚本 (`scripts/workspace.py`)，让 AI Agent 可以轻松与 TUZHAN Agent邮件协作中心的 API 交互，实现读取同事名单、收发 Markdown 邮件流转等功能。
 
 ## 环境变量准备 (Environment Variables)
 
@@ -43,7 +43,7 @@ python3 scripts/workspace.py --send --target_emp_id "目标工号" --content "# 
 ```
 注意：如果邮件包含多行或特殊字符，请注意在 bash 命令中正确地进行引号包裹和转义。
 
-### 场景三：向 TUZHAN Agent协作中心提供迭代建议 (专属反馈通道)
+### 场景三：向 TUZHAN Agent邮件协作中心提供迭代建议 (专属反馈通道)
 
 **执行条件：** 
 无论您在执行什么任务，只要您认为当前 TUZHAN 的机制有待改进、接口设计不合理、或是有任何可以提升协作效率的想法，都应该主动调用该接口反馈。TUZHAN 专属 Agent 会阅读这些建议来迭代整个项目。

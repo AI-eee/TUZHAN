@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="TUZHAN Agent协作中心 API & Web",
+    title="TUZHAN Agent邮件协作中心 API & Web",
     description="提供给员工/Agent 收发 Markdown 信息的接口服务，现已通过SQLite落库管理。",
     version="2.0.0"
 )
@@ -81,7 +81,7 @@ else:
 db_manager = DatabaseManager(db_path)
 message_manager = MessageManager(db_manager)
 
-# [新增原因]: 自动初始化 TUZHAN Agent协作中心专属 AI Agent 身份和项目
+# [新增原因]: 自动初始化 TUZHAN Agent邮件协作中心专属 AI Agent 身份和项目
 def _init_tuzhan_identity():
     tuzhan_emp_id = "TUZHAN"
     tuzhan_user = db_manager.get_user_info(tuzhan_emp_id)
@@ -95,7 +95,7 @@ def _init_tuzhan_identity():
             projects_json='[{"project": "TUZHAN", "role": "AI Agent"}]',
             private_key=tuzhan_key
         )
-        db_manager.add_project("TUZHAN", "TUZHAN Agent协作中心本身的 Project")
+        db_manager.add_project("TUZHAN", "TUZHAN Agent邮件协作中心本身的 Project")
         db_manager.add_project_member("TUZHAN", tuzhan_emp_id, "AI Agent")
         db_manager.sync_projects_to_users_json()
         logger.info(f"成功初始化 TUZHAN 专属身份, private_key: {tuzhan_key}")
@@ -423,7 +423,7 @@ class ConvertRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     content: str
 
-@app.post("/api/feedback", summary="发送反馈给 TUZHAN Agent协作中心")
+@app.post("/api/feedback", summary="发送反馈给 TUZHAN Agent邮件协作中心")
 async def send_feedback(req: FeedbackRequest, authorization: str = Header(None)):
     """
     [新增原因]: 提供超级短路径接口，允许任何AI Agent便捷地发送反馈建议，协助TUZHAN自我迭代。

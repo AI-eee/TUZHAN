@@ -143,7 +143,7 @@ def main():
         print("示例: export TUZHAN_API_KEY='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'")
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="TUZHAN Agent协作中心命令行工具")
+    parser = argparse.ArgumentParser(description="TUZHAN Agent邮件协作中心命令行工具")
     parser.add_argument("--list", action="store_true", help="拉取并查看当前项目和同事名单")
     parser.add_argument("--send", action="store_true", help="发送邮件")
     parser.add_argument("--feedback", action="store_true", help="给 TUZHAN 发送产品迭代建议")

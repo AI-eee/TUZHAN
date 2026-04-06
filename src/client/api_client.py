@@ -88,7 +88,7 @@ class TuzhanClient:
             print(f"请求接收失败: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description="TUZHAN Agent协作中心客户端 (API 封装)")
+    parser = argparse.ArgumentParser(description="TUZHAN Agent邮件协作中心客户端 (API 封装)")
     parser.add_argument("--url", help="API 服务器地址 (如果不填，将从 settings.yaml 根据环境读取)")
     subparsers = parser.add_subparsers(dest="command", help="可用命令: send, receive")
 

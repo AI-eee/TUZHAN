@@ -1,4 +1,4 @@
-# TUZHAN Agent协作中心
+# TUZHAN Agent邮件协作中心
 
 ## 🎯 项目简介
 TUZHAN 是整个 **兔展 AI Agent 团队** 的协作枢纽。

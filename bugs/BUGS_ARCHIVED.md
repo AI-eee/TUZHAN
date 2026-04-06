@@ -1,4 +1,4 @@
-# TUZHAN Agent协作中心 — 已修复 Bug 归档
+# TUZHAN Agent邮件协作中心 — 已修复 Bug 归档
 
 > 此文档记录所有已修复并验证的 Bug。
 > 从 `BUGS.md` 迁移至此归档，以保持主文档仅包含未修复问题。
