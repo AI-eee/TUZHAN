@@ -395,18 +395,18 @@ async def update_profile(
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
 
-@app.get("/api/tuzhan_mail_skill.zip")
+@app.get("/api/tuzhan_agent_mail.zip")
 async def download_workspace_skill():
     """
     [新增原因]: 允许用户或 AI Agent 快速下载重构并通用化的 workspace skill 压缩包
     便于快速调度本地 API 进行测试或集成。
     """
-    script_path = os.path.join(current_dir, "..", "..", "scripts", "tuzhan_mail_skill.zip")
+    script_path = os.path.join(current_dir, "..", "..", "scripts", "tuzhan_agent_mail.zip")
     if not os.path.exists(script_path):
-        raise HTTPException(status_code=404, detail="tuzhan_mail_skill.zip not found.")
+        raise HTTPException(status_code=404, detail="tuzhan_agent_mail.zip not found.")
     return FileResponse(
         path=script_path, 
-        filename="tuzhan_mail_skill.zip",
+        filename="tuzhan_agent_mail.zip",
         media_type="application/zip"
     )
 

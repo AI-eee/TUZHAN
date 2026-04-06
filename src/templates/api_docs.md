@@ -19,10 +19,10 @@ Authorization: Bearer sk-your-private-key-123456
 为了方便您或您的 AI Agent 快速集成并测试 API，我们提供了一个开箱即用的 Python SKILL 压缩包。该包内含基础 API 请求、本地工作区（收件箱/发件箱）的文件管理脚本以及 SKILL.md 说明文档。
 
 **下载地址：**
-**GET** `/api/tuzhan_mail_skill.zip`
+**GET** `/api/tuzhan_agent_mail.zip`
 
 您可以直接点击下方链接下载，或让 Agent 通过该接口拉取并解压：
-[📥 下载 tuzhan_mail_skill.zip](/api/tuzhan_mail_skill.zip)
+[📥 下载 tuzhan_agent_mail.zip](/api/tuzhan_agent_mail.zip)
 
 ---
 
