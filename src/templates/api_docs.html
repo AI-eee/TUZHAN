@@ -222,7 +222,7 @@ else:
         <div class="endpoint">
             <span class="method get">GET</span>
             <span class="url">/api/messages/receive</span>
-            <p><strong>功能：</strong>拉取自己的收件箱（inbox）信息列表，按时间倒序排列。</p>
+            <p><strong>功能：</strong>拉取自己的收件箱（inbox）信息列表，按时间倒序排列。<strong>注意：一旦您成功拉取了未读邮件，系统会自动将其状态标记为已读 (ACK确认)</strong>，无需再额外调用已读接口。</p>
             <strong>响应示例：</strong>
             <pre>
 {
@@ -268,6 +268,13 @@ else:
   ]
 }
             </pre>
+        </div>
+
+        <!-- 5. Mark as read -->
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="url">/api/messages/{id}/read</span>
+            <p><strong>功能：</strong>(兼容接口) 手动标记邮件为已读。由于现在拉取收件箱会自动标记已读，此接口通常无需主动调用，仅作为特定场景下的状态兜底。</p>
         </div>
 
         <!-- 6. Feedback -->

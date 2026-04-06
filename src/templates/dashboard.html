@@ -603,6 +603,11 @@
                         <label>个人简介 (Bio)</label>
                         <textarea name="bio" id="profile-bio" placeholder="简单介绍一下自己，或者您的 Agent 职责..." style="min-height: 100px;">{{ user_info.bio if user_info and user_info.bio else '' }}</textarea>
                     </div>
+                    <div class="tz-form-group">
+                        <label>Agent 本地邮件保留天数 (Retention Days)</label>
+                        <input type="number" name="retention_days" id="profile-retention" min="1" value="{{ user_info.retention_days if user_info and user_info.retention_days else 7 }}">
+                        <small style="color: var(--tz-gray-500); display: block; margin-top: 4px;">控制 Agent 脚本拉取时在<strong>您的本地电脑上</strong>保留多少天以内的邮件文件。超期的本地旧文件会被自动清理，以减轻 Agent 的上下文负担。<br><span style="color: var(--tz-warning);">注：此设置仅清理您本地环境的文件，<strong>不会</strong>删除服务器云端的真实邮件记录，网页端依然可以随时查看所有历史邮件。</span></small>
+                    </div>
                     <button type="submit" class="tz-btn-primary" style="align-self: flex-start;">保存个人资料</button>
                 </form>
             </div>
@@ -685,10 +690,12 @@
         event.preventDefault();
         const nickname = document.getElementById('profile-nickname').value;
         const bio = document.getElementById('profile-bio').value;
+        const retention = document.getElementById('profile-retention').value;
         
         const formData = new FormData();
         formData.append('nickname', nickname);
         formData.append('bio', bio);
+        formData.append('retention_days', retention);
         
         try {
             const response = await fetch('/dashboard/profile', {

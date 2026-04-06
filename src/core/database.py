@@ -56,6 +56,7 @@ class DatabaseManager:
                         is_admin INTEGER DEFAULT 0,
                         identity_md TEXT,
                         bio TEXT,
+                        retention_days INTEGER DEFAULT 7,
                         created_at TEXT NOT NULL
                     )
                 ''')
@@ -75,9 +76,12 @@ class DatabaseManager:
                 has_is_admin = 'is_admin' in columns
                 sel_is_admin = "is_admin" if has_is_admin else "0"
 
+                has_retention = 'retention_days' in columns
+                sel_retention = "retention_days" if has_retention else "7"
+
                 cursor.execute(f'''
-                    INSERT INTO users_new (emp_id, nickname, projects, private_key, status, is_admin, identity_md, bio, created_at)
-                    SELECT emp_id, {sel_nickname}, projects, private_key, {sel_status}, {sel_is_admin}, {sel_identity}, {sel_bio}, created_at
+                    INSERT INTO users_new (emp_id, nickname, projects, private_key, status, is_admin, identity_md, bio, retention_days, created_at)
+                    SELECT emp_id, {sel_nickname}, projects, private_key, {sel_status}, {sel_is_admin}, {sel_identity}, {sel_bio}, {sel_retention}, created_at
                     FROM users WHERE emp_id IS NOT NULL
                 ''')
                 
@@ -95,6 +99,10 @@ class DatabaseManager:
                 # 如果是旧的数据，给已知的 TZzhjiac 初始化赋予超管权限以防止丢失访问权
                 # [修改原因]: 根据最新要求，超管工号固定为 TZzhjiac
                 cursor.execute("UPDATE users SET is_admin = 1 WHERE emp_id = 'TZzhjiac'")
+
+            # [新增原因]：热更新 retention_days 字段
+            if 'retention_days' not in columns:
+                cursor.execute("ALTER TABLE users ADD COLUMN retention_days INTEGER DEFAULT 7")
                 
             # [新增原因]：热更新 messages 表的软删除字段
             cursor.execute("PRAGMA table_info(messages)")
@@ -143,6 +151,7 @@ class DatabaseManager:
                     is_admin INTEGER DEFAULT 0,
                     identity_md TEXT,
                     bio TEXT,
+                    retention_days INTEGER DEFAULT 7,
                     created_at TEXT NOT NULL
                 )
             ''')
@@ -488,11 +497,11 @@ class DatabaseManager:
             conn.commit()
             return cursor.rowcount > 0
 
-    def update_user_profile(self, emp_id: str, nickname: str, bio: str) -> bool:
-        """[新增原因]: 允许用户更新个人主页的昵称和简介"""
+    def update_user_profile(self, emp_id: str, nickname: str, bio: str, retention_days: int = 7) -> bool:
+        """[新增原因]: 允许用户更新个人主页的昵称、简介和邮件保留天数"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE users SET nickname = ?, bio = ? WHERE emp_id = ?", (nickname, bio, emp_id))
+            cursor.execute("UPDATE users SET nickname = ?, bio = ?, retention_days = ? WHERE emp_id = ?", (nickname, bio, retention_days, emp_id))
             conn.commit()
             return cursor.rowcount > 0
 

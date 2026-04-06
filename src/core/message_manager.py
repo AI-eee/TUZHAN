@@ -91,19 +91,26 @@ class MessageManager:
         """
         获取指定接收者的收件箱中的所有邮件。
         从数据库中提取。支持按 status 过滤。
+        [修改原因]: 根据用户要求，改为拉取时自动将未读邮件标记为已读，提高操作效率。
         """
         rows = self.db.get_messages_for_user(receiver, status)
         
         # 为了兼容之前的 API 结构（带有 metadata 等），我们需要做一次包装
         messages = []
         for row in rows:
+            # 自动标记已读并更新返回状态
+            msg_status = row["status"]
+            if msg_status == "unread":
+                self.mark_message_as_read(row["id"], receiver)
+                msg_status = "read"
+
             messages.append({
                 "metadata": {
                     "id": row["id"],
                     "sender": row["sender"],
                     "receiver": row["receiver"],
                     "timestamp": row["created_at"],
-                    "status": row["status"]
+                    "status": msg_status
                 },
                 "content": row["content"],
                 "filename": f"db_record_{row['id']}.md" # 伪造一个文件名给旧客户端看

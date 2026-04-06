@@ -36,7 +36,7 @@ class TestProjectCRUD:
                                   json={"description": "无效更新"})
         assert resp.status_code == 404
 
-    def test_delete_project_with_members_fails(self, base_url, admin_session, noproj_user):
+    def test_delete_project_with_members_fails(self, base_url, admin_session, noproj_user, db_manager):
         """删除有成员的项目应失败，返回 400"""
         import uuid
         proj_name = f"ProjectToDelete_{uuid.uuid4().hex[:8]}"
@@ -58,6 +58,10 @@ class TestProjectCRUD:
         resp = admin_session.delete(f"{base_url}/admin/projects/{proj_name}")
         assert resp.status_code == 400
         assert "请先移除所有成员" in resp.json()["detail"]
+        
+        # [修改原因]: 清理测试产生的数据，避免 noproj_user 被错误地关联项目而污染后续的测试用例
+        admin_session.delete(f"{base_url}/admin/projects/{proj_name}/members/{noproj_user['emp_id']}")
+        admin_session.delete(f"{base_url}/admin/projects/{proj_name}")
 
     def test_delete_project_without_members_success(self, base_url, admin_session, noproj_user):
         """删除没有成员的项目应成功，并且后续查不到"""

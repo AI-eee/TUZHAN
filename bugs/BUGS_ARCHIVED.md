@@ -226,3 +226,17 @@
 **文件**: `src/templates/dashboard.html`
 
 **修复方案**: 合并为单个 `document.addEventListener('DOMContentLoaded', ...)`，hash 恢复逻辑移入同一处理器。
+
+### BUG-52: 禁用用户请求 API 时返回 401 而不是 403 — ✅ 已修复
+
+**文件**: `src/api/server.py`
+
+**修复方案**: 在 `/api/projects` 和 `/api/llm/convert` 等接口中，获取 `emp_id` 时将 `active_only=True` 改为 `active_only=False`，并在后续判断用户 `status == "disabled"` 时明确抛出 403 错误，确保 API 的语义正确性并修复相关单元测试。
+
+---
+
+### BUG-53: 测试用例状态泄露导致后续测试失败 — ✅ 已修复
+
+**文件**: `tests/admin/test_project_management.py`
+
+**修复方案**: `test_delete_project_with_members_fails` 测试用例在向项目添加成员并验证删除失败后，未进行数据清理，导致作为 session fixture 的 `noproj_user` 错误地关联了项目，进而导致 `test_projects.py` 等测试用例失败。已在断言后添加清理代码以恢复测试数据状态。

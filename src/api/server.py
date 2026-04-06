@@ -373,10 +373,11 @@ async def dashboard_send(
 async def update_profile(
     nickname: str = Form(None),
     bio: str = Form(None),
+    retention_days: int = Form(7),
     emp_id: str = Cookie(None),
     private_key: str = Cookie(None)
 ):
-    """[新增原因]: 用户更新个人资料"""
+    """[新增原因]: 用户更新个人资料和保留天数配置"""
     # [修改原因]: 改为 active_only=True (BUG-25 修复)
     if not private_key or db_manager.get_user_by_key(private_key, active_only=True) != emp_id:
         return {"status": "error", "detail": "未授权"}
@@ -389,11 +390,47 @@ async def update_profile(
         if existing and existing["emp_id"] != emp_id:
             return {"status": "error", "detail": "该昵称已被使用，请换一个以方便分辨"}
             
-    db_manager.update_user_profile(emp_id, nickname or "", bio or "")
-    
+    # 防止传入非法的保留天数
+    if retention_days < 1:
+        retention_days = 7
+            
+    db_manager.update_user_profile(emp_id, nickname or "", bio or "", retention_days)
     return {"status": "success"}
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
+
+@app.get("/api/version", summary="获取最新系统版本信息")
+async def get_system_version():
+    """
+    [新增原因]: 允许外部 Agent 通过 API 快速拉取最新的系统版本号及更新说明，
+    从而对比本地版本决定是否需要执行 --update 自我更新。
+    """
+    versions_dir = os.path.join(current_dir, "..", "..", "versions")
+    if not os.path.exists(versions_dir):
+        return {"status": "error", "detail": "暂无版本记录"}
+        
+    md_files = [f for f in os.listdir(versions_dir) if f.endswith(".md")]
+    if not md_files:
+        return {"status": "error", "detail": "暂无版本记录"}
+        
+    # 获取最新版本 (按文件名降序)
+    md_files.sort(reverse=True)
+    latest_file = md_files[0]
+    version_name = latest_file.replace(".md", "")
+    
+    try:
+        with open(os.path.join(versions_dir, latest_file), "r", encoding="utf-8") as f:
+            content = f.read()
+        return {
+            "status": "success",
+            "data": {
+                "version": version_name,
+                "content": content
+            }
+        }
+    except Exception as e:
+        logger.error(f"读取版本文件失败: {e}")
+        return {"status": "error", "detail": "读取版本信息失败"}
 
 @app.get("/api/tuzhan_agent_mail.zip")
 async def download_workspace_skill():
@@ -440,9 +477,10 @@ async def send_feedback(req: FeedbackRequest, authorization: str = Header(None))
 
     # 允许任何人向 TUZHAN 发送反馈，不再校验是否在项目组中
     try:
+        # [修改原因]: 根据用户要求，不仅发送给 TUZHAN 官方账号，还要直接抄送一份给超管 (TZzhjiac)
         msg_ids, _ = message_manager.send_message(
             sender=sender_emp_id,
-            receivers=["TUZHAN"],
+            receivers=["TUZHAN", "TZzhjiac"],
             content=req.content
         )
         return {
@@ -470,12 +508,14 @@ async def get_projects(authorization: str = Header(None), private_key: str = Coo
     if not key:
         raise HTTPException(status_code=401, detail="未授权")
 
-    # [修改原因]: 改为 active_only=True，已禁用用户直接拒绝 (BUG-25 修复)
-    emp_id = db_manager.get_user_by_key(key, active_only=True)
+    # [修改原因]: 改为 active_only=False 以区分未授权和被禁用账号，修复被禁用账号返回 401 的 Bug
+    emp_id = db_manager.get_user_by_key(key, active_only=False)
     if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权或账号已被禁用")
-
+        raise HTTPException(status_code=401, detail="未授权")
+    
     user_info = db_manager.get_user_info(emp_id)
+    if user_info and user_info.get("status") == "disabled":
+        raise HTTPException(status_code=403, detail="账号已被禁用")
     try:
         all_projects = db_manager.get_all_projects()
         # 仅返回该员工所在的项目
@@ -484,7 +524,16 @@ async def get_projects(authorization: str = Header(None), private_key: str = Coo
             if any(m.get("emp_id") == emp_id for m in p.get("members", [])):
                 user_projects.append(p)
                 
-        return {"status": "success", "data": user_projects}
+        # [修改原因]: 将用户的个人偏好配置 (如 retention_days) 一并返回，方便 Agent 脚本使用
+        retention_days = user_info.get("retention_days", 7) if user_info else 7
+
+        return {
+            "status": "success", 
+            "data": user_projects,
+            "config": {
+                "retention_days": retention_days
+            }
+        }
     except Exception as e:
         logger.error(f"读取组织架构失败: {e}")
         return {"status": "error", "data": []}
@@ -502,10 +551,14 @@ async def convert_to_markdown(req: ConvertRequest, authorization: str = Header(N
     if not key:
         raise HTTPException(status_code=401, detail="未授权")
 
-    # [修改原因]: 改为 active_only=True (BUG-25 修复)
-    emp_id = db_manager.get_user_by_key(key, active_only=True)
+    # [修改原因]: 改为 active_only=False 以区分未授权和被禁用账号，修复被禁用账号返回 401 的 Bug
+    emp_id = db_manager.get_user_by_key(key, active_only=False)
     if not emp_id:
-        raise HTTPException(status_code=401, detail="未授权或账号已被禁用")
+        raise HTTPException(status_code=401, detail="未授权")
+    
+    user_info = db_manager.get_user_info(emp_id)
+    if user_info and user_info.get("status") == "disabled":
+        raise HTTPException(status_code=403, detail="账号已被禁用")
 
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
