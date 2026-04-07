@@ -878,12 +878,17 @@
             ta.focus();
             ta.select();
             try {
-                document.execCommand('copy') ? TZUI.toast('身份凭证已成功复制！', 'success') : TZUI.toast('复制失败，请手动选择复制。', 'error');
+                document.execCommand('copy') ? TZUI.toast('身份凭证已成功复制！', 'success') : fallbackPrompt(keyText);
             } catch (e) {
-                TZUI.toast('复制失败，请手动选择复制。', 'error');
+                fallbackPrompt(keyText);
             }
             document.body.removeChild(ta);
         }
+    }
+
+    function fallbackPrompt(keyText) {
+        TZUI.toast('自动复制失败，请在弹窗中手动复制。', 'warning');
+        prompt('自动复制失败（非安全上下文或权限被拒），请手动复制您的 Private Key：', keyText);
     }
 
     // Compose: action button & project/member logic

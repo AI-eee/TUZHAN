@@ -707,7 +707,9 @@
             await writeAndForget(keyText);
             TZUI.toast('Private Key 已复制到剪贴板（页面不会显示明文）', 'success');
         } catch (e) {
-            TZUI.toast('复制失败，请检查浏览器权限。', 'error');
+            // [修复] 当非安全上下文（如 http://IP）且异步执行导致 execCommand 失败时，提供手动复制的后备方案
+            TZUI.toast('自动复制失败，请在弹窗中手动复制。', 'warning');
+            prompt('自动复制失败（非安全上下文或权限被拒），请手动复制您的 Private Key：', keyText);
         } finally {
             keyText = null; // 立即丢弃内存中的明文
         }
