@@ -34,54 +34,6 @@ def get_db_path(env="development"):
         db_path = os.path.join(current_dir, "..", db_path[2:])
     return os.path.abspath(db_path)
 
-def sync_projects_to_db(env="development"):
-    """
-    [修改原因]: 读取 org_chart.yaml，将其中的 Project 信息和员工角色(Role)同步到数据库的 projects 和 project_members 表中
-    """
-    db_path = get_db_path(env)
-    db_manager = DatabaseManager(db_path)
-    
-    org_file = os.path.join(current_dir, '..', 'config', 'org_chart.yaml')
-    with open(org_file, 'r', encoding='utf-8') as f:
-        org_data = yaml.safe_load(f)
-        
-    projects = org_data.get('projects', [])
-    
-    # 收集用户信息
-    user_nicknames = {}
-    for proj in projects:
-        proj_name = proj.get("name")
-        proj_desc = proj.get("description", "")
-        
-        # 添加项目
-        db_manager.add_project(proj_name, proj_desc)
-        # 更新项目描述（如果项目已存在）
-        db_manager.update_project_description(proj_name, proj_desc)
-        
-        for member in proj.get("members", []):
-            nickname = member.get("nickname")
-            role = member.get("role", "Member")
-            emp_id = member.get("emp_id")
-            
-            if not emp_id:
-                continue
-            
-            if nickname:
-                user_nicknames[emp_id] = nickname
-                
-            # 确保用户存在
-            db_manager.ensure_user_exists(emp_id=emp_id, nickname=nickname)
-            
-            # 添加项目成员
-            db_manager.add_project_member(proj_name, emp_id, role)
-            # 更新成员角色（如果已存在）
-            db_manager.update_project_member_role(proj_name, emp_id, role)
-            
-    # 同步到旧的 JSON 字段以保持兼容性
-    db_manager.sync_projects_to_users_json()
-        
-    print(f"\n[{env.upper()} 环境] 组织架构(Projects)及工号信息已成功同步到数据库！\n")
-
 def generate_key_for_user(emp_id: str, env="development"):
     db_path = get_db_path(env)
     db_manager = DatabaseManager(db_path)
@@ -162,12 +114,8 @@ def toggle_admin_status(emp_id: str, action: str, env="development"):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="TUZHAN 账号与架构管理工具")
-    subparsers = parser.add_subparsers(dest="command", help="可用命令: sync, keygen, new_emp_id, admin")
-    
-    # 同步组织架构命令
-    sync_parser = subparsers.add_parser("sync", help="同步 org_chart.yaml 中的项目架构到数据库")
-    sync_parser.add_argument("--env", choices=["development", "production"], default=None, help="运行环境 (默认从 .env 读取)")
-    
+    subparsers = parser.add_subparsers(dest="command", help="可用命令: keygen, new_emp_id, admin")
+
     # 生成密钥命令
     keygen_parser = subparsers.add_parser("keygen", help="为指定工号生成一串独立的 Private Key")
     keygen_parser.add_argument("emp_id", help="需要生成密钥的员工工号 (如: TZ000002)")
@@ -188,9 +136,7 @@ if __name__ == "__main__":
     # 解析环境
     env = get_env(args.env if hasattr(args, 'env') else None)
     
-    if args.command == "sync":
-        sync_projects_to_db(env)
-    elif args.command == "keygen":
+    if args.command == "keygen":
         generate_key_for_user(args.emp_id, env)
     elif args.command == "new_emp_id":
         create_unique_emp_id(env)

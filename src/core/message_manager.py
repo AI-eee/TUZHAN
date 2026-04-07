@@ -87,13 +87,13 @@ class MessageManager:
 
         return msg_ids, invalid_receivers
 
-    def get_inbox_messages(self, receiver: str, status: Optional[str] = None) -> list:
+    def get_inbox_messages(self, receiver: str, status: Optional[str] = None, since: Optional[str] = None) -> list:
         """
         获取指定接收者的收件箱中的所有邮件。
-        从数据库中提取。支持按 status 过滤。
+        从数据库中提取。支持按 status 过滤、按 since 增量拉取。
         [修改原因]: 根据用户要求，改为拉取时自动将未读邮件标记为已读，提高操作效率。
         """
-        rows = self.db.get_messages_for_user(receiver, status)
+        rows = self.db.get_messages_for_user(receiver, status, since)
         
         # 为了兼容之前的 API 结构（带有 metadata 等），我们需要做一次包装
         messages = []

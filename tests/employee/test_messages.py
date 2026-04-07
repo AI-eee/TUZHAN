@@ -66,21 +66,14 @@ class TestSendMessage:
         assert len(data.get("msg_ids", [])) == 0
         assert user3["emp_id"] in data.get("invalid_receivers", [])
 
-    def test_send_feedback_to_tuzhan_cross_project(self, api_url, user1, noproj_user):
-        """任何人（包括无项目组人员）都可以向 TUZHAN 提交反馈，不受项目组限制"""
-        # 测试普通有项目人员发送
-        resp1 = requests.post(f"{api_url}/feedback", headers=_auth(user1["key"]), json={
-            "content": "给 TUZHAN 的建议1"
-        })
-        assert resp1.status_code == 200
-        assert resp1.json()["status"] == "success"
-
-        # 测试无项目人员发送
-        resp2 = requests.post(f"{api_url}/feedback", headers=_auth(noproj_user["key"]), json={
-            "content": "给 TUZHAN 的建议2"
-        })
-        assert resp2.status_code == 200
-        assert resp2.json()["status"] == "success"
+    def test_feedback_endpoint_deprecated_v210(self, api_url, user1, noproj_user):
+        """[v2.1.0]: /api/feedback 已废弃，所有调用统一返回 410，引导到 GitHub Issues。"""
+        for u in (user1, noproj_user):
+            resp = requests.post(f"{api_url}/feedback", headers=_auth(u["key"]), json={
+                "content": "给 TUZHAN 的建议"
+            })
+            assert resp.status_code == 410
+            assert "github.com/AI-eee/TUZHAN/issues" in resp.json().get("detail", "")
 
     def test_send_without_token_returns_401(self, api_url, user2):
         """未携带 Token 发送邮件应返回 401"""

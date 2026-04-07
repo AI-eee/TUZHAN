@@ -5,33 +5,33 @@ import random
 import string
 import json
 from fastapi import HTTPException, Cookie
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class IdentityRequest(BaseModel):
-    identity_md: str
+    identity_md: str = Field(..., max_length=8000)
 
 class StatusRequest(BaseModel):
-    status: str
+    status: str = Field(..., max_length=20)
 
 class UserCreateRequest(BaseModel):
-    nickname: str
+    nickname: str = Field(..., min_length=1, max_length=50)
 
 class ProjectCreateRequest(BaseModel):
-    name: str
-    description: str
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = Field("", max_length=500)
 
 class MemberCreateRequest(BaseModel):
-    emp_ids: list[str]
-    role: str
+    emp_ids: list[str] = Field(..., max_length=100)
+    role: str = Field(..., min_length=1, max_length=50)
 
 class ProjectDescRequest(BaseModel):
-    description: str
+    description: str = Field("", max_length=500)
 
 class MemberRoleUpdateRequest(BaseModel):
-    role: str
+    role: str = Field(..., min_length=1, max_length=50)
 
 class LLMKeyRequest(BaseModel):
-    llm_api_key: str
+    llm_api_key: str = Field(..., max_length=200)
 
 def register_admin_routes(app, db_manager, _require_admin, current_dir):
     
@@ -45,9 +45,22 @@ def register_admin_routes(app, db_manager, _require_admin, current_dir):
         new_key = f"sk-{secrets.token_hex(16)}"
         success = db_manager.update_user_key_by_emp_id(target_emp_id, new_key)
         if success:
-            return {"status": "success", "new_key": new_key}
+            # [新增原因]: 不在响应体中回显新 Key，避免在浏览器历史 / DevTools / 截图中留痕。
+            # 管理员需要点击"复制"按钮主动调用 /key 接口取走。
+            return {"status": "success"}
         else:
             raise HTTPException(status_code=500, detail="重新生成失败，数据库更新错误")
+
+    @app.get("/admin/users/{target_emp_id}/key")
+    async def reveal_user_key(target_emp_id: str, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
+        """[新增原因]: 按需获取某员工的 Private Key 明文。
+        仅供管理员前端的"复制"按钮在用户主动点击时一次性调用，不在 HTML 源码中渲染明文。
+        """
+        _require_admin(emp_id, private_key)
+        target_user = db_manager.get_user_info(target_emp_id)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="未找到对应的员工")
+        return {"status": "success", "private_key": target_user.get("private_key", "")}
 
     @app.post("/admin/users/{target_emp_id}/identity")
     async def update_user_identity(target_emp_id: str, req: IdentityRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):
@@ -86,7 +99,8 @@ def register_admin_routes(app, db_manager, _require_admin, current_dir):
                 break
         new_key = f"sk-{secrets.token_hex(16)}"
         db_manager.ensure_user_exists(emp_id=new_emp_id, nickname=req.nickname, projects_json="[]", private_key=new_key)
-        return {"status": "success", "emp_id": new_emp_id, "nickname": req.nickname, "private_key": new_key}
+        # [安全] 不在创建响应中回显 Private Key，前端通过点击复制按钮调用 /admin/users/{emp_id}/key 获取
+        return {"status": "success", "emp_id": new_emp_id, "nickname": req.nickname}
 
     @app.post("/admin/projects")
     async def add_project(req: ProjectCreateRequest, emp_id: str = Cookie(None), private_key: str = Cookie(None)):

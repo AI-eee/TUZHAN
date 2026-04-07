@@ -347,7 +347,7 @@
                             </td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span class="tz-key-text" id="key-{{ u.emp_id }}">{{ u.private_key }}</span>
+                                    <span class="tz-key-text" id="key-{{ u.emp_id }}" title="出于安全考虑，私钥永远不在页面上明文显示，请点击右侧复制按钮一次性取走">sk-••••••••••••••••</span>
                                     <svg onclick="copyKey('{{ u.emp_id }}')" class="tz-icon-btn copy" title="复制 Private Key" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -668,25 +668,48 @@
 
 {% block page_scripts %}
 <script>
-    // Copy key with fallback
-    function copyKey(empId) {
-        const keyText = document.getElementById(`key-${empId}`).innerText;
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(keyText).then(() => {
-                TZUI.toast('Private Key 已成功复制！', 'success');
-            }).catch(() => TZUI.toast('复制失败，请手动选择复制。', 'error'));
-        } else {
-            const ta = document.createElement("textarea");
-            ta.value = keyText;
-            ta.style.position = "fixed";
-            ta.style.left = "-999999px";
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            try {
-                document.execCommand('copy') ? TZUI.toast('Private Key 已成功复制！', 'success') : TZUI.toast('复制失败，请手动选择复制。', 'error');
-            } catch (e) { TZUI.toast('复制失败，请手动选择复制。', 'error'); }
-            document.body.removeChild(ta);
+    // [安全] Private Key 永远不在 HTML 源码中渲染，
+    // 复制按钮会即时调用 /admin/users/{empId}/key 拉取明文，写入剪贴板后立即丢弃，避免截图泄漏。
+    async function copyKey(empId) {
+        let keyText;
+        try {
+            const resp = await fetch(`/admin/users/${empId}/key`);
+            const data = await resp.json();
+            if (!resp.ok || data.status !== 'success' || !data.private_key) {
+                TZUI.toast('获取 Key 失败：' + (data.detail || '未知错误'), 'error');
+                return;
+            }
+            keyText = data.private_key;
+        } catch (e) {
+            TZUI.toast('网络错误，获取 Key 失败。', 'error');
+            return;
+        }
+
+        const writeAndForget = (text) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(text);
+            }
+            return new Promise((resolve, reject) => {
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed";
+                ta.style.left = "-999999px";
+                document.body.appendChild(ta);
+                ta.focus(); ta.select();
+                try {
+                    document.execCommand('copy') ? resolve() : reject();
+                } catch (e) { reject(e); }
+                document.body.removeChild(ta);
+            });
+        };
+
+        try {
+            await writeAndForget(keyText);
+            TZUI.toast('Private Key 已复制到剪贴板（页面不会显示明文）', 'success');
+        } catch (e) {
+            TZUI.toast('复制失败，请检查浏览器权限。', 'error');
+        } finally {
+            keyText = null; // 立即丢弃内存中的明文
         }
     }
 
@@ -696,8 +719,8 @@
                 const response = await fetch(`/admin/users/${empId}/regenerate-key`, { method: 'POST' });
                 const data = await response.json();
                 if (response.ok && data.status === 'success') {
-                    document.getElementById(`key-${empId}`).innerText = data.new_key;
-                    TZUI.toast('已成功重新生成，新 Key: ' + data.new_key, 'success');
+                    // [安全] 不在响应中接收明文 Key，提示管理员主动点击复制按钮取走
+                    TZUI.toast('已成功重新生成，请点击该行的"复制"按钮取走新 Key 并分发。', 'success');
                 } else {
                     TZUI.toast('重新生成失败: ' + (data.detail || '未知错误'), 'error');
                 }

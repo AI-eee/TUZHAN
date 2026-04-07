@@ -34,7 +34,13 @@ pip install -r requirements.txt
 ```bash
 # 创建 .env 文件
 echo "TUZHAN_ENV=production" > /path/to/TUZHAN/.env
+
+# 可选：登录接口限流速率（默认 10/minute，防爆破）
+# 如需调整可追加，例如放宽到 30/minute：
+# echo "TUZHAN_LOGIN_RATE=30/minute" >> /path/to/TUZHAN/.env
 ```
+
+> ⚙️ `TUZHAN_LOGIN_RATE` 同时作用于 `/login` 与 `/admin/login`。生产环境留空使用默认值即可,只有在确认需要放宽时才调整。改完需要 `sudo systemctl restart tuzhan` 生效。同时记得在 `tuzhan.service` 的 `[Service]` 段加 `EnvironmentFile=/path/to/TUZHAN/.env`,否则 systemd 不会读 `.env`。
 
 ### 4. 初始化数据库
 
@@ -133,6 +139,34 @@ curl -s -o /dev/null -w "%{http_code}" http://<公网IP>:8888/     # 应返回 2
 # 检查管理后台
 curl -s -o /dev/null -w "%{http_code}" http://<公网IP>:8888/admin/login  # 应返回 200
 ```
+
+### 8. 配置每日数据库备份(必做,只配一次)
+
+> ⚠️ **部署同事注意**:此步骤是**首次部署必做项**。如果服务器上的 crontab 已经有 `backup_db.py` 这一行,说明之前部署过,跳过即可;如果没有,必须加上,否则数据库不会有备份。
+
+项目自带热备份脚本 `scripts/backup_db.py`,使用 SQLite `.backup()` API 做事务一致性备份,原子重命名,自动清理 14 天前的旧备份。备份文件落在 `/path/to/TUZHAN/backups/` 下,与应用同机。
+
+**安装 cron 任务:**
+
+```bash
+# 1. 先确认是否已配置过(如果有输出,说明已存在,跳过下面的安装步骤)
+crontab -l 2>/dev/null | grep backup_db.py
+
+# 2. 没有则追加(每天凌晨 3:30 执行一次)
+( crontab -l 2>/dev/null; echo "30 3 * * * cd /path/to/TUZHAN && /path/to/TUZHAN/venv/bin/python3 scripts/backup_db.py --env production >> /var/log/tuzhan-backup.log 2>&1" ) | crontab -
+
+# 3. 验证已写入
+crontab -l | grep backup_db.py
+```
+
+**手动跑一次确认脚本可用:**
+
+```bash
+cd /path/to/TUZHAN && . venv/bin/activate && python3 scripts/backup_db.py --env production
+ls -lh backups/
+```
+
+应该能看到形如 `prod_2026-04-07.sqlite` 的文件。
 
 ## 🔄 更新代码
 

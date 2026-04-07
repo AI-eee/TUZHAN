@@ -2,7 +2,6 @@
 # 由于项目基于 Markdown 文件处理与交互，预先引入一些可能用到的基础库
 markdown2==2.4.13
 PyYAML==6.0.1
-watchdog==4.0.0  # 用于监听 Markdown 文件的变化
 pydantic==2.6.4  # 用于数据结构校验和定义
 
 # [修改原因]: 引入 FastAPI 提供 Web API 服务，让没有权限的人也能通过接口收发信息；引入 requests 给客户端程序使用。

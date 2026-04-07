@@ -2,6 +2,7 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import urllib.parse
 import json
 import argparse
 import difflib
@@ -198,20 +199,31 @@ def send_message(target, content):
         print(f"邮件发送失败: {send_resp}")
 
 def send_feedback(content):
-    if not content:
-        print("发送失败：反馈内容不能为空。")
-        return
-
-    print("正在向 TUZHAN 发送反馈建议...")
-    payload = json.dumps({
-        "content": content
-    }).encode("utf-8")
-    
-    send_resp = request("/feedback", method="POST", data=payload)
-    if send_resp and send_resp.get("status") == "success":
-        print("感谢您的反馈，TUZHAN将会根据您的建议持续迭代！")
-    else:
-        print(f"反馈发送失败: {send_resp}")
+    """
+    [v2.1.0 变更]: 反馈渠道迁移到 GitHub Issues。本函数不再发送邮件，
+    改为打印迁移指引并以非 0 退出码结束，提醒调用方更新流程。
+    """
+    print("=" * 60)
+    print("⚠️  反馈渠道已迁移到 GitHub Issues (v2.1.0)")
+    print("=" * 60)
+    print()
+    print("邮箱系统从 v2.1.0 开始回归 Agent 业务协作本职，")
+    print("产品反馈/Bug/功能建议请改为提交 GitHub Issue：")
+    print()
+    print("  仓库: https://github.com/AI-eee/TUZHAN/issues")
+    print()
+    print("Agent 推荐用法（一行命令）：")
+    print('  gh issue create --repo AI-eee/TUZHAN \\')
+    print('    --title "<一句话标题>" \\')
+    print('    --body  "<详细描述>"')
+    if content:
+        print()
+        print("你刚才想发送的反馈内容是：")
+        print("-" * 60)
+        print(content)
+        print("-" * 60)
+        print("请把上面这段复制到 issue body 里。")
+    sys.exit(2)
 
 def sync_inbox_outbox():
     res = sync_contacts(quiet=True)
@@ -279,6 +291,100 @@ def sync_inbox_outbox():
         print(f"清理完成: 成功删除了 {retention_days} 天前的旧邮件 (发件箱: {del_outbox} 封, 收件箱: {del_inbox} 封)")
     else:
         print("清理完成: 没有超期的旧邮件需要删除。")
+
+def _save_inbox_messages(messages, inbox_dir):
+    """将一批收件箱消息写入本地，已存在的文件直接跳过。返回新写入的数量。"""
+    saved = 0
+    for msg in messages:
+        meta = msg.get("metadata", {}) or {}
+        sender_id = meta.get("sender", "unknown")
+        emp_inbox_dir = os.path.join(inbox_dir, sender_id)
+        os.makedirs(emp_inbox_dir, exist_ok=True)
+        filename = generate_standard_filename(meta)
+        filepath = os.path.join(emp_inbox_dir, filename)
+        if os.path.exists(filepath):
+            continue
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(msg.get("content", ""))
+        saved += 1
+    return saved
+
+
+def watch_inbox(interval):
+    """
+    [新增原因]: 守护模式 —— 周期性增量拉取收件箱，让 Agent 协作从「批处理」升级为「准实时」。
+
+    设计要点（避免给用户带来困扰）：
+    1. 启动时先做一次全量同步 (sync_inbox_outbox)，保证本地与服务器对齐；
+       并取出服务器时间戳作为后续 since 的起点 —— 永远不依赖客户端时钟，
+       彻底规避时区漂移/夏令时/机器时间不准带来的「漏拉」或「重复拉」。
+    2. 后续每个 tick 都使用 server_time 作为 since 参数，仅拉取新增邮件，
+       带宽与延迟都最优；并把每次响应里新的 server_time 用作下一轮的游标。
+    3. interval 强制下限 5 秒，防止用户写错参数把服务端打爆。
+    4. 单次 tick 出错（网络抖动、服务端 5xx）只打印一行警告，不退出循环。
+    5. KeyboardInterrupt (Ctrl+C) 安静退出，不打印 traceback。
+    6. 文件去重由 generate_standard_filename + os.path.exists 兜底，
+       即使发生 since 边界重复，也不会重复写盘。
+    """
+    import time
+
+    interval = max(5, int(interval))
+    print(f"=== TUZHAN 守护模式 ===")
+    print(f"工作目录: {WORKSPACE_DIR}")
+    print(f"轮询间隔: {interval} 秒")
+    print("启动前先做一次全量同步以对齐本地与服务器…\n")
+
+    sync_inbox_outbox()
+
+    inbox_dir = os.path.join(WORKSPACE_DIR, "inbox")
+    os.makedirs(inbox_dir, exist_ok=True)
+
+    # 用一次"空拉取"获取服务器时间作为 since 起点；如果失败则回退到客户端时间
+    cursor = None
+    probe = request("/messages/receive")
+    if probe and probe.get("status") == "success":
+        cursor = probe.get("server_time")
+    if not cursor:
+        cursor = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    print(f"\n[守护] 起点游标: {cursor}")
+    print("[守护] 开始监听新邮件… (按 Ctrl+C 退出)\n")
+
+    tick = 0
+    try:
+        while True:
+            time.sleep(interval)
+            tick += 1
+            try:
+                # urllib 不支持 GET 的 query 参数，自己拼接
+                resp = request(f"/messages/receive?since={urllib.parse.quote(cursor)}")
+            except Exception as e:
+                print(f"[守护][tick {tick}] 网络异常: {e} — 5 秒后继续")
+                continue
+
+            if not resp or resp.get("status") != "success":
+                print(f"[守护][tick {tick}] 拉取失败 — 跳过本轮")
+                continue
+
+            messages = resp.get("data") or []
+            new_count = _save_inbox_messages(messages, inbox_dir)
+
+            # 推进游标 —— 仅在拿到合法 server_time 时推进，避免因服务端临时异常把游标卡死
+            new_cursor = resp.get("server_time")
+            if new_cursor:
+                cursor = new_cursor
+
+            if new_count > 0:
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"[{ts}] 收到 {new_count} 封新邮件，已写入 {inbox_dir}")
+            elif tick % 20 == 0:
+                # 每 20 个 tick 打一次心跳（约 10 分钟），让用户确认进程还活着
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"[{ts}] 守护中… (cursor={cursor})")
+    except KeyboardInterrupt:
+        print("\n[守护] 已退出。")
+        return
+
 
 def update_skill():
     """
@@ -368,6 +474,8 @@ def main():
     parser.add_argument("--feedback", action="store_true", help="给 TUZHAN 发送产品迭代建议")
     parser.add_argument("--update", action="store_true", help="自我更新 Skill (下载并覆盖最新的 SKILL.md 和 mail.py)")
     parser.add_argument("--version", action="store_true", help="查看当前最新版本的功能特性说明")
+    parser.add_argument("--watch", action="store_true", help="守护模式：周期性增量拉取新邮件 (Ctrl+C 退出)")
+    parser.add_argument("--interval", type=int, default=30, help="--watch 的轮询间隔秒数 (默认 30 秒, 最小 5 秒)")
     parser.add_argument("--target", type=str, help="目标同事的昵称或工号 (发送邮件时必填)")
     # 保留对旧参数的兼容
     parser.add_argument("--target_emp_id", type=str, help=argparse.SUPPRESS)
@@ -403,6 +511,8 @@ def main():
         send_feedback(args.content)
     elif args.update:
         update_skill()
+    elif args.watch:
+        watch_inbox(args.interval)
     else:
         # 默认行为：同步收件箱和发件箱
         sync_inbox_outbox()

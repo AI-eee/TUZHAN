@@ -17,8 +17,20 @@ class DatabaseManager:
         # sqlite:///./data/dev.sqlite -> ./data/dev.sqlite
         self.db_path = db_path.replace("sqlite:///", "")
         self._ensure_db_dir()
+        self._enable_wal()
         self.init_tables()
         self._upgrade_db()
+
+    def _enable_wal(self):
+        """[新增原因]: 开启 WAL 模式，显著提升 SQLite 在高并发读写下的吞吐与响应速度。
+        synchronous=NORMAL 在 WAL 下是常规推荐配置，断电仅可能丢失最近一笔事务，对邮件场景可接受。"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.close()
+        except Exception as e:
+            logger.warning(f"启用 WAL 模式失败（可忽略）: {e}")
 
     def _ensure_db_dir(self):
         db_dir = os.path.dirname(self.db_path)
@@ -296,20 +308,23 @@ class DatabaseManager:
             conn.commit()
     # -----------------------------------------------------
 
-    def get_messages_for_user(self, user: str, status: Optional[str] = None) -> list:
-        """获取某个用户的收件箱列表"""
+    def get_messages_for_user(self, user: str, status: Optional[str] = None, since: Optional[str] = None) -> list:
+        """获取某个用户的收件箱列表。
+        [新增 since 参数]: 仅返回 created_at > since 的邮件，用于增量拉取。since 为 ISO 8601 字符串
+        (例如 "2026-04-07 12:34:56")，与 messages.created_at 同格式直接做字符串比较即可。
+        """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            sql = "SELECT * FROM messages WHERE receiver = ? AND receiver_deleted = 0"
+            params: list = [user]
             if status:
-                cursor.execute(
-                    "SELECT * FROM messages WHERE receiver = ? AND status = ? AND receiver_deleted = 0 ORDER BY created_at DESC", 
-                    (user, status)
-                )
-            else:
-                cursor.execute(
-                    "SELECT * FROM messages WHERE receiver = ? AND receiver_deleted = 0 ORDER BY created_at DESC", 
-                    (user,)
-                )
+                sql += " AND status = ?"
+                params.append(status)
+            if since:
+                sql += " AND created_at > ?"
+                params.append(since)
+            sql += " ORDER BY created_at DESC"
+            cursor.execute(sql, tuple(params))
             return [dict(row) for row in cursor.fetchall()]
 
     def get_sent_messages_for_user(self, user: str) -> list:

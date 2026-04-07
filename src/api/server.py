@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request, Form, Response, Cookie, Que
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
 import yaml
 import logging
@@ -20,6 +20,16 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 from core.message_manager import MessageManager
 from core.database import DatabaseManager
 
+# [新增原因]: 提前定义所有 BaseModel，避免在 from __future__ import annotations 下
+# 装饰器(尤其是 slowapi @limiter.limit)进行 eager 类型解析时找不到符号。
+class MessageRequest(BaseModel):
+    """发送邮件的请求结构（去除sender，由Token自动解析）"""
+    receiver: str = Field(..., max_length=2000)
+    content: str = Field(..., max_length=20000)
+
+class ConvertRequest(BaseModel):
+    content: str = Field(..., max_length=20000)
+
 # 初始化基础日志和应用
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,8 +37,43 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="TUZHAN Agent邮件协作中心 API & Web",
     description="提供给员工/Agent 收发 Markdown 信息的接口服务，现已通过SQLite落库管理。",
-    version="2.0.0"
+    version="2.1.0"
 )
+
+# [新增原因]: 引入 slowapi 对登录与高成本接口做限速，
+# 防止外部暴力破解和已离职员工的恶意访问。
+# 限速基于客户端 IP，命中后返回 429 Too Many Requests。
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+_LOGIN_RATE = os.environ.get("TUZHAN_LOGIN_RATE", "10/minute")
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# [新增原因]: 全站统一注入安全响应头 —— Content-Security-Policy / X-Frame-Options / nosniff / Referrer-Policy。
+# CSP 白名单仅放行项目实际使用的几个 CDN（cloudflare、jsdelivr、google fonts），
+# 其它脚本/样式一律拒绝执行，从根本上压制 XSS 注入加载外站资源的风险。
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    response.headers.setdefault("Content-Security-Policy", csp)
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # [修改原因]: 引入 Jinja2 模板和静态文件支持
@@ -130,7 +175,11 @@ def _require_admin(emp_id: str, private_key: str):
         raise HTTPException(status_code=403, detail="Access Denied: You are not the administrator.")
 
 # [修改原因]: Cookie 安全属性常量，防止 XSS/CSRF 窃取凭证 (BUG-02 修复)
-COOKIE_OPTS = {"httponly": True, "samesite": "Lax"}
+# [二次升级]: 将 SameSite 从 Lax 提升到 Strict，彻底关闭 CSRF 攻击面 (BUG-24)。
+# Strict 含义: 本站 Cookie 在任何跨站请求(无论 GET/POST/iframe/fetch)中都不会被发送，
+# 副作用是从外部链接(邮件/聊天)点击进入时不会带上 Cookie，需要重新登录一次 ——
+# 对一个内部协作工具完全可接受。
+COOKIE_OPTS = {"httponly": True, "samesite": "strict"}
 
 # ----------------- WEB UI 路由 -----------------
 
@@ -142,6 +191,7 @@ async def index(request: Request, emp_id: str = Cookie(None), private_key: str =
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
+@limiter.limit(_LOGIN_RATE)
 async def login(request: Request, private_key: str = Form(...)):
     """[修改原因]: 改为通过 Private Key 登录，获取 emp_id 并在全局废弃 username"""
     emp_id = db_manager.get_user_by_key(private_key, active_only=False)
@@ -223,6 +273,7 @@ async def admin_login_page(request: Request, emp_id: str = Cookie(None), private
     return templates.TemplateResponse("admin_login.html", {"request": request})
 
 @app.post("/admin/login")
+@limiter.limit(_LOGIN_RATE)
 async def admin_login(request: Request, private_key: str = Form(...)):
     """[修改原因]: 验证管理员身份，改为检查 is_admin 字段而非硬编码 emp_id"""
     emp_id = db_manager.get_user_by_key(private_key, active_only=False)
@@ -268,7 +319,10 @@ async def admin_dashboard(request: Request, emp_id: str = Cookie(None), private_
     total_messages_count = db_manager.get_messages_total_count()
     
     # 将 projects JSON 字符串反序列化供模板渲染
+    # [新增原因]: 严格脱敏 - 从模板上下文中彻底剔除 private_key，杜绝任何"截图即泄漏"的可能。
+    # 即使是超管，也必须通过点击"复制"按钮临时调用 /admin/users/{emp_id}/key 接口拿到明文。
     for u in all_users:
+        u.pop("private_key", None)
         if u.get("projects"):
             try:
                 u["projects_list"] = json.loads(u["projects"])
@@ -399,6 +453,22 @@ async def update_profile(
 
 # ----------------- API 接口 (供 Agent 和 Client 使用) -----------------
 
+@app.get("/api/health", summary="健康检查接口")
+async def health_check():
+    """[新增原因]: 提供轻量探活端点，便于反向代理 / 监控系统判断服务存活与数据库可用性。"""
+    db_ok = True
+    try:
+        with db_manager.get_connection() as conn:
+            conn.execute("SELECT 1").fetchone()
+    except Exception as e:
+        db_ok = False
+        logger.error(f"健康检查数据库不可用: {e}")
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "db": "ok" if db_ok else "error",
+        "env": env,
+    }
+
 @app.get("/api/version", summary="获取最新系统版本信息")
 async def get_system_version():
     """
@@ -449,48 +519,21 @@ async def download_workspace_skill():
 
 from fastapi import Header
 
-class MessageRequest(BaseModel):
-    """发送邮件的请求结构（去除sender，由Token自动解析）"""
-    receiver: str
-    content: str
-
-class ConvertRequest(BaseModel):
-    content: str
-
-class FeedbackRequest(BaseModel):
-    content: str
-
-@app.post("/api/feedback", summary="发送反馈给 TUZHAN Agent邮件协作中心")
-async def send_feedback(req: FeedbackRequest, authorization: str = Header(None)):
+@app.api_route("/api/feedback", methods=["POST", "GET"], summary="[v2.1.0 已废弃] 反馈接口")
+async def send_feedback_deprecated():
     """
-    [新增原因]: 提供超级短路径接口，允许任何AI Agent便捷地发送反馈建议，协助TUZHAN自我迭代。
-    [修改原因]: 移除"必须属于某个项目"的限制，确保所有人（包括无项目人员）都能给 TUZHAN 提反馈。
+    [v2.1.0 变更原因]: 反馈渠道迁移到 GitHub Issues。
+    邮件系统回归 Agent 业务协作本职，不再混入对产品本身的反馈。
+    返回 HTTP 410 Gone，并在响应体中给出迁移指引。
     """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
-        
-    private_key = authorization.split(" ")[1]
-    sender_emp_id = db_manager.get_user_by_key(private_key, active_only=True)
-
-    if not sender_emp_id:
-        raise HTTPException(status_code=403, detail="无效的 Private Key 或账号已被禁用")
-
-    # 允许任何人向 TUZHAN 发送反馈，不再校验是否在项目组中
-    try:
-        # [修改原因]: 根据用户要求，不仅发送给 TUZHAN 官方账号，还要直接抄送一份给超管 (TZzhjiac)
-        msg_ids, _ = message_manager.send_message(
-            sender=sender_emp_id,
-            receivers=["TUZHAN", "TZzhjiac"],
-            content=req.content
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "本接口已废弃。请到 GitHub Issues 提交反馈："
+            "https://github.com/AI-eee/TUZHAN/issues — "
+            "Agent 可使用 `gh issue create --repo AI-eee/TUZHAN --title <title> --body <body>`。"
         )
-        return {
-            "status": "success",
-            "msg_ids": msg_ids,
-            "message": "感谢您的反馈，TUZHAN将会根据您的建议持续迭代！"
-        }
-    except Exception as e:
-        logger.error(f"发送反馈失败: {e}")
-        raise HTTPException(status_code=500, detail="发送反馈失败")
+    )
 
 @app.get("/api/projects", summary="获取项目及成员列表")
 async def get_projects(authorization: str = Header(None), private_key: str = Cookie(None)):
@@ -630,11 +673,17 @@ async def send_message(req: MessageRequest, authorization: str = Header(None)):
         raise HTTPException(status_code=500, detail="邮件发送失败，请检查服务器日志")
 
 @app.get("/api/messages/receive", summary="接收邮件接口")
-async def receive_messages(authorization: str = Header(None), status: Optional[str] = Query(None)):
+async def receive_messages(
+    authorization: str = Header(None),
+    status: Optional[str] = Query(None),
+    since: Optional[str] = Query(None, description="只返回 created_at 严格大于该时间戳的邮件，格式 'YYYY-MM-DD HH:MM:SS'"),
+):
     """
     [修改原因]: API 收件也改为验证 Token，只有提供正确的 Key 才能看自己的收件箱。并拦截禁用账号。
     [新增权限控制]: 如果接收者不属于任何项目，则禁止拉取收件箱。
     [修改原因]: 支持按 status 过滤（例如 ?status=unread），满足 AI Agent 增量拉取需求。
+    [新增原因]: 支持 ?since=<timestamp> 增量拉取，避免每次都全量返回历史邮件，
+    极大降低高消息量场景下的带宽与延迟。
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="缺少身份凭证 (Bearer Token)")
@@ -652,8 +701,14 @@ async def receive_messages(authorization: str = Header(None), status: Optional[s
         raise HTTPException(status_code=403, detail="您不属于任何项目，无法拉取收件箱")
 
     try:
-        messages = message_manager.get_inbox_messages(emp_id, status=status)
-        return {"status": "success", "data": messages}
+        messages = message_manager.get_inbox_messages(emp_id, status=status, since=since)
+        # 返回 server_time 给客户端，用于下一轮 since 参数；避免客户端时钟漂移导致漏拉
+        from datetime import datetime as _dt
+        return {
+            "status": "success",
+            "data": messages,
+            "server_time": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
     except Exception as e:
         logger.error(f"读取收件箱失败: {e}")
         raise HTTPException(status_code=500, detail="收件箱读取失败")
@@ -712,6 +767,8 @@ async def delete_message(msg_id: str, private_key: str = Cookie(None), authoriza
             return {"status": "success", "message": "删除成功"}
         else:
             raise HTTPException(status_code=404, detail="找不到对应的邮件或权限不足")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"删除邮件失败: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")

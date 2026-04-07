@@ -4,12 +4,16 @@
 
 {% block page_head %}
 
-    <!-- [新增原因]: 引入 Highlight.js 实现代码块高亮 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-light.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <!-- [修改原因]: 引入 EasyMDE (去除了工具栏作为纯 CodeMirror) 实现 Markdown 语法高亮体验 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+    <!-- [新增原因]: 引入 Highlight.js 实现代码块高亮，加 SRI 防 CDN 投毒 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-light.min.css"
+          integrity="sha384-w6Ujm1VWa9HYFqGc89oAPn/DWDi2gUamjNrq9DRvEYm2X3ClItg9Y9xs1ViVo5b5" crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"
+            integrity="sha384-g4mRvs7AO0/Ol5LxcGyz4Doe21pVhGNnC3EQw5shw+z+aXDN86HqUdwXWO+Gz2zI" crossorigin="anonymous"></script>
+    <!-- [修改原因]: 引入 EasyMDE 实现 Markdown 编辑体验，加 SRI -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css"
+          integrity="sha384-3AvV7152TgYAMYdGZPqG9BpmSH2ZW6ewTDL0QV5PyNkl19KMI+yLMdJz183N8A2d" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"
+            integrity="sha384-YDXeUfPZ4SP6vJpnF+ZMmf4B1bax6yd4Q/aNbkvLidRD843hPG5RE67M0IYT4LOq" crossorigin="anonymous"></script>
 
 <style>
     .dashboard-projects {
@@ -426,6 +430,16 @@
         {% endif %}
     </div>
 
+    <!-- [v2.1.0] 员工 Dashboard 冻结提示 -->
+    <div style="background: linear-gradient(135deg, #fff7ed, #fef3c7); border: 1px solid #f59e0b; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #78350f; font-size: 13px; line-height: 1.6;">
+        <strong>📌 提示 (v2.1.0)：</strong>员工 Dashboard 已进入<strong>冻结状态</strong>，仅供日常查看邮件、修改资料使用。所有新功能与协作能力请使用命令行工具
+        <code style="background: rgba(255,255,255,0.6); padding: 1px 6px; border-radius: 4px;">tuzhan_agent_mail</code>
+        skill (<code style="background: rgba(255,255,255,0.6); padding: 1px 6px; border-radius: 4px;">scripts/mail.py</code>)。
+        产品反馈/Bug 请改至
+        <a href="https://github.com/AI-eee/TUZHAN/issues" target="_blank" rel="noopener" style="color: #b45309; font-weight: 600;">GitHub Issues</a>
+        提交，邮件渠道不再受理。
+    </div>
+
     <!-- Main card with tabs -->
     <div class="tz-card" style="padding: 0;">
         <div class="tz-tabs-header">
@@ -565,9 +579,9 @@
                     </div>
                     <div class="tz-form-group">
                         <label>内容 (需为标准 Markdown 格式)</label>
-                        <textarea id="msg-content" name="content" placeholder="输入你想表达的内容，我们将通过 AI 为你格式化..." required></textarea>
+                        <textarea id="msg-content" name="content" placeholder="直接输入标准 Markdown 内容..." required></textarea>
                     </div>
-                    <button type="button" id="action-btn" class="tz-btn-primary">AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span></button>
+                    <button type="button" id="action-btn" class="tz-btn-primary">发送邮件 <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span></button>
                 </form>
             </div>
 
@@ -950,73 +964,13 @@
         receiverInput.value = Array.from(cbs).map(cb => cb.value).join(',');
     }
 
-    actionBtn.addEventListener('click', async () => {
+    // [v2.1.0]: 移除 AI 智能转换流程，按钮直接发送邮件。员工 Dashboard 进入冻结状态，
+    // 所有新功能只走 CLI (`scripts/tuzhan_agent_mail/scripts/mail.py`)。
+    actionBtn.addEventListener('click', () => {
         const content = contentArea.value.trim();
         if (!content) { TZUI.toast("请输入内容", "error"); return; }
-
-        if (state === 0) {
-            actionBtn.disabled = true;
-            actionBtn.innerText = "AI 正在思考和转换中...";
-            // [修改原因]: 移除之前写死的无聊灰色，替换为科幻动画类
-            actionBtn.style.background = "";
-            actionBtn.style.boxShadow = "";
-            actionBtn.classList.add("btn-ai-thinking");
-            
-            // 为输入框(CodeMirror)添加科幻扫描和闪烁效果
-            const editorEl = document.querySelector('.CodeMirror');
-            if (editorEl) editorEl.classList.add('editor-ai-thinking');
-
-            try {
-                const res = await fetch('/api/llm/convert', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content })
-                });
-                const data = await res.json();
-                if (res.ok && data.status === 'success') {
-                    let finalMd = data.data;
-                    if (finalMd.startsWith("```markdown")) {
-                        finalMd = finalMd.substring(11);
-                        if (finalMd.endsWith("```")) finalMd = finalMd.substring(0, finalMd.length - 3);
-                    }
-                    contentArea.value = finalMd.trim();
-                    if (easymde) { easymde.value(finalMd.trim()); }
-                    state = 1;
-                    actionBtn.classList.remove("btn-ai-thinking");
-                    const editorEl = document.querySelector('.CodeMirror');
-                    if (editorEl) editorEl.classList.remove('editor-ai-thinking');
-
-                    actionBtn.innerHTML = '确认发送 <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span>';
-                    actionBtn.style.background = "linear-gradient(135deg, var(--tz-success), #2dd36f)";
-                    actionBtn.style.boxShadow = "0 2px 8px rgba(34,197,94,0.3)";
-                } else {
-                    TZUI.toast("转换失败：" + (data.detail || "未知错误"), "error");
-                    resetActionBtn();
-                }
-            } catch (err) {
-                TZUI.toast("网络请求失败，请稍后重试", "error");
-                resetActionBtn();
-            } finally {
-                actionBtn.disabled = false;
-            }
-        } else if (state === 1) {
-            if (!receiverInput.value.trim()) { TZUI.toast("请至少选择一个接收方！", "error"); return; }
-            form.submit();
-        }
-    });
-
-    function resetActionBtn() {
-        actionBtn.innerHTML = 'AI 智能转换为 Markdown <span style="font-size:0.8em; opacity:0.7; margin-left: 4px;">(⌘/Ctrl + Enter)</span>';
-        actionBtn.style.background = "";
-        actionBtn.style.boxShadow = "";
-        actionBtn.classList.remove("btn-ai-thinking");
-        
-        const editorEl = document.querySelector('.CodeMirror');
-        if (editorEl) editorEl.classList.remove('editor-ai-thinking');
-    }
-
-    contentArea.addEventListener('input', () => {
-        if (state === 1) { state = 0; resetActionBtn(); }
+        if (!receiverInput.value.trim()) { TZUI.toast("请至少选择一个接收方！", "error"); return; }
+        form.submit();
     });
 
     contentArea.addEventListener('keydown', (e) => {
