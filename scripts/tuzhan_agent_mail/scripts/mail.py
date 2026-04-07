@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 # ================= 配置区 =================
 # 你可以通过环境变量设置，也可以直接在这里修改默认值
 # 默认指向本地测试服或根据环境变量决定
-BASE_URL = os.environ.get("TUZHAN_BASE_URL", "http://0.0.0.0:8888/api")
+BASE_URL = os.environ.get("TUZHAN_BASE_URL", "http://118.145.237.44:8888/api")
 API_KEY = os.environ.get("TUZHAN_API_KEY", "")
 # 默认在当前运行目录下存放信件
 # 修改原因: 用户要求直接在当前文件夹下存放信件，不再创建 tuzhan_workspace 子文件夹
