@@ -2,8 +2,10 @@
 .env
 
 # SQLite 数据库文件，保护系统数据安全
-data/*.sqlite
-data/*.db
+# 整个 data/ 目录都是运行时产物 (数据库 + WAL 辅助文件 + 旧备份),不入库
+data/
+# 数据库每日热备份目录,只在生产服上落盘
+backups/
 
 # Python 缓存文件
 __pycache__/
