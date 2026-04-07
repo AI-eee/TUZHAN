@@ -472,22 +472,22 @@
                         <td style="color: var(--tz-text-muted); font-size: 12px;">{{ msg.created_at }}</td>
                         <!-- [修改原因]: 将原本只显示纯工号，改为显示“昵称 (工号)”，方便快速辨认发件人和收件人 -->
                         <td><strong>
-                            {% set sender_display = msg.sender %}
+                            {% set ns_sender = namespace(display=msg.sender) %}
                             {% for u in all_users %}
                                 {% if u.emp_id == msg.sender %}
-                                    {% set sender_display = (u.nickname or u.emp_id) ~ " (" ~ msg.sender ~ ")" %}
+                                    {% set ns_sender.display = (u.nickname or u.emp_id) ~ " (" ~ msg.sender ~ ")" %}
                                 {% endif %}
                             {% endfor %}
-                            {{ sender_display }}
+                            {{ ns_sender.display }}
                         </strong></td>
                         <td><strong>
-                            {% set receiver_display = msg.receiver %}
+                            {% set ns_receiver = namespace(display=msg.receiver) %}
                             {% for u in all_users %}
                                 {% if u.emp_id == msg.receiver %}
-                                    {% set receiver_display = (u.nickname or u.emp_id) ~ " (" ~ msg.receiver ~ ")" %}
+                                    {% set ns_receiver.display = (u.nickname or u.emp_id) ~ " (" ~ msg.receiver ~ ")" %}
                                 {% endif %}
                             {% endfor %}
-                            {{ receiver_display }}
+                            {{ ns_receiver.display }}
                         </strong></td>
                         <td>
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">

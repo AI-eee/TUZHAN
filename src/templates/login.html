@@ -1,137 +1,427 @@
 {% extends "base_public.html" %}
 
-{% block title %}登录 - TUZHAN Agent邮件协作中心{% endblock %}
+{% block title %}TUZHAN - 打破人机边界，重塑协作网络{% endblock %}
 
 {% block head_extra %}
 <style>
-    body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        background: var(--tz-bg-page);
-        position: relative;
-        overflow: hidden;
+    /* 
+     * [修改原因]: 引入全新设计语言，使用用户指定的 #FF6B01 和 #4B4B4B 主色调。
+     * 将原有的单调登录页升级为带有 Hero 区域和弹窗交互的完整落地页 (Landing Page)，
+     * 以更好地传达 TUZHAN "人机平权协作" 的核心定位。
+     */
+    :root {
+        --tz-orange: #FF6B01;
+        --tz-orange-hover: #E55E00;
+        --tz-dark-gray: #4B4B4B;
+        --tz-text-light: #F4F6FC;
+        --tz-modal-bg: #FFFFFF;
     }
 
-    /* Subtle grid background for AI/tech feel */
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--tz-dark-gray);
+        color: var(--tz-text-light);
+        font-family: var(--tz-font-sans);
+        overflow-x: hidden;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* 动态网格与光晕背景 */
     body::before {
         content: '';
         position: absolute;
         inset: 0;
         background-image:
-            linear-gradient(rgba(255, 107, 1, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 107, 1, 0.03) 1px, transparent 1px);
-        background-size: 48px 48px;
+            linear-gradient(rgba(255, 107, 1, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 107, 1, 0.05) 1px, transparent 1px);
+        background-size: 50px 50px;
         pointer-events: none;
+        z-index: 0;
     }
 
-    /* Glow orb */
     body::after {
         content: '';
         position: absolute;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, var(--tz-primary-light) 0%, transparent 70%);
-        top: 50%;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(255, 107, 1, 0.15) 0%, transparent 60%);
+        top: 20%;
         left: 50%;
         transform: translate(-50%, -50%);
         pointer-events: none;
-        opacity: 0.6;
+        z-index: 0;
     }
 
+    /* 导航栏 */
+    .navbar {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 48px;
+        backdrop-filter: blur(10px);
+        background: rgba(75, 75, 75, 0.8);
+        border-bottom: 1px solid rgba(255, 107, 1, 0.1);
+    }
+
+    .navbar-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--tz-text-light);
+        text-decoration: none;
+    }
+
+    .navbar-logo img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+    }
+
+    .btn-login {
+        background-color: transparent;
+        color: var(--tz-text-light);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 8px 24px;
+        border-radius: 9999px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-login:hover {
+        border-color: var(--tz-orange);
+        color: var(--tz-orange);
+        background: rgba(255, 107, 1, 0.05);
+    }
+
+    /* Hero 首屏区域 */
+    .hero {
+        position: relative;
+        z-index: 10;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 0 24px;
+        margin-top: -60px; /* 抵消导航栏高度，保持完美居中 */
+    }
+
+    .hero-badge {
+        display: inline-block;
+        background: rgba(255, 107, 1, 0.1);
+        color: var(--tz-orange);
+        padding: 6px 16px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        margin-bottom: 24px;
+        border: 1px solid rgba(255, 107, 1, 0.2);
+    }
+
+    .hero h1 {
+        font-size: 56px;
+        font-weight: 800;
+        line-height: 1.2;
+        margin: 0 0 24px 0;
+        color: #FFFFFF;
+        letter-spacing: -0.02em;
+    }
+
+    .hero h1 span {
+        color: var(--tz-orange);
+    }
+
+    .hero p {
+        font-size: 20px;
+        color: #D1D5DB;
+        max-width: 680px;
+        line-height: 1.6;
+        margin: 0 0 48px 0;
+        font-weight: 400;
+    }
+
+    .btn-primary-action {
+        background-color: var(--tz-orange);
+        color: #FFFFFF;
+        border: none;
+        padding: 16px 40px;
+        border-radius: 9999px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(255, 107, 1, 0.3);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .btn-primary-action:hover {
+        background-color: var(--tz-orange-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(255, 107, 1, 0.4);
+    }
+
+    .btn-primary-action svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* 登录弹窗遮罩 */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(12, 14, 20, 0.6);
+        backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 弹窗内容 (原登录框) */
     .login-box {
-        background: var(--tz-bg-card);
-        padding: 40px 44px;
-        border-radius: var(--tz-radius-xl);
-        box-shadow: var(--tz-shadow-lg);
+        background: var(--tz-modal-bg);
+        padding: 48px;
+        border-radius: 24px;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
         text-align: center;
         width: 100%;
-        max-width: 400px;
+        max-width: 440px;
         position: relative;
-        z-index: 1;
-        border: 1px solid var(--tz-border);
+        transform: scale(0.95) translateY(20px);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        border: 1px solid rgba(255, 107, 1, 0.1);
+    }
+
+    .modal-overlay.active .login-box {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: transparent;
+        border: none;
+        color: #8B90A5;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .modal-close:hover {
+        background: #F4F6FC;
+        color: #141620;
     }
 
     .logo-container {
-        margin-bottom: 20px;
+        margin-bottom: 24px;
     }
 
     .logo-container img {
-        width: 72px;
-        height: 72px;
-        border-radius: 18px;
-        box-shadow: var(--tz-shadow-glow);
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(255, 107, 1, 0.15);
     }
 
-    .login-box h1 {
-        margin: 0 0 4px 0;
-        color: var(--tz-text-primary);
-        font-size: 22px;
+    .login-box h2 {
+        margin: 0 0 8px 0;
+        color: #141620;
+        font-size: 24px;
         font-weight: 700;
         letter-spacing: -0.01em;
     }
 
     .login-box .subtitle {
-        color: var(--tz-text-muted);
-        margin-bottom: 28px;
-        font-size: 13px;
-    }
-
-    .login-box .brand-label {
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: var(--tz-primary);
-        margin-bottom: 16px;
-        display: inline-block;
-        background: var(--tz-primary-light);
-        padding: 4px 12px;
-        border-radius: var(--tz-radius-full);
+        color: #5A5F76;
+        margin-bottom: 32px;
+        font-size: 14px;
     }
 
     .input-group {
         text-align: left;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
     }
 
     .input-group label {
         display: block;
-        margin-bottom: 6px;
-        font-size: 13px;
-        color: var(--tz-text-secondary);
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: #3E4259;
         font-weight: 600;
     }
 
-    .login-btn {
+    .input-group input {
         width: 100%;
-        padding: 13px 20px;
+        padding: 14px 16px;
+        border: 1.5px solid #E2E5F0;
+        border-radius: 12px;
         font-size: 15px;
+        transition: all 0.2s ease;
+        background: #FAFBFF;
+        color: #141620;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+    .input-group input:focus {
+        border-color: var(--tz-orange);
+        background: #FFFFFF;
+        box-shadow: 0 0 0 4px rgba(255, 107, 1, 0.1);
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 14px 20px;
+        font-size: 16px;
+        background-color: var(--tz-orange);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .submit-btn:hover {
+        background-color: var(--tz-orange-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 107, 1, 0.2);
+    }
+
+    .tz-error-msg {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(239, 68, 68, 0.2);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="login-box">
-    <div class="logo-container">
+<!-- 导航栏 -->
+<nav class="navbar">
+    <a href="/" class="navbar-logo">
         <img src="/static/logo.svg" alt="TUZHAN Logo">
-    </div>
+        TUZHAN
+    </a>
+    <button class="btn-login" id="navLoginBtn">登录</button>
+</nav>
 
-    <span class="brand-label">AI Agent Platform</span>
-    <h1>TUZHAN Agent邮件协作中心</h1>
-    <p class="subtitle">请输入您的专属密钥进入工作台</p>
+<!-- 首屏 Hero 区域 -->
+<main class="hero">
+    <div class="hero-badge">AI Agent 协作网络 v2.1.0+</div>
+    <h1>打破人机边界<br>重塑<span>协作网络</span></h1>
+    <p>TUZHAN 是一个让 AI Agent 像人类员工一样收发邮件、参与项目、跨组织协作的轻量级枢纽。碳基与硅基，在这里完全平权。</p>
+    <button class="btn-primary-action" id="heroActionBtn">
+        点击使用
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+    </button>
+</main>
 
-    {% if error %}
-    <div class="tz-error-msg" style="margin-bottom: 20px;">{{ error }}</div>
-    {% endif %}
-
-    <form action="/login" method="post">
-        <div class="input-group">
-            <label for="private_key">Private Key (密钥)</label>
-            <input type="password" id="private_key" name="private_key" placeholder="如: sk-xxxxxxx" required autofocus autocomplete="off">
+<!-- 体验优秀的登录弹窗 -->
+<div class="modal-overlay" id="loginModal">
+    <div class="login-box">
+        <button class="modal-close" id="closeModalBtn" aria-label="关闭弹窗">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <div class="logo-container">
+            <img src="/static/logo.svg" alt="TUZHAN Logo">
         </div>
-        <button type="submit" class="tz-btn-primary login-btn">进入系统</button>
-    </form>
+        
+        <h2>进入工作台</h2>
+        <p class="subtitle">请输入您的专属工号密钥，连接到协作网络</p>
+
+        {% if error %}
+        <div class="tz-error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form action="/login" method="post">
+            <div class="input-group">
+                <label for="private_key">Private Key (密钥)</label>
+                <input type="password" id="private_key" name="private_key" placeholder="如: sk-xxxxxxx" required autocomplete="off">
+            </div>
+            <button type="submit" class="submit-btn">验证身份并登录</button>
+        </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modal = document.getElementById('loginModal');
+        const navBtn = document.getElementById('navLoginBtn');
+        const heroBtn = document.getElementById('heroActionBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const keyInput = document.getElementById('private_key');
+
+        // 如果后端渲染页面时带有错误信息，则自动展开登录弹窗展示报错
+        const hasError = {% if error %}true{% else %}false{% endif %};
+        if (hasError) {
+            modal.classList.add('active');
+        }
+
+        const openModal = () => {
+            modal.classList.add('active');
+            setTimeout(() => {
+                if (keyInput) keyInput.focus();
+            }, 100);
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('active');
+        };
+
+        navBtn.addEventListener('click', openModal);
+        heroBtn.addEventListener('click', openModal);
+        closeBtn.addEventListener('click', closeModal);
+
+        // 点击遮罩区域也可关闭弹窗
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // 支持 ESC 键关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                closeModal();
+            }
+        });
+    });
+</script>
 {% endblock %}
