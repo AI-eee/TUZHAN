@@ -470,8 +470,25 @@
                 {% for msg in all_messages %}
                     <tr class="message-row">
                         <td style="color: var(--tz-text-muted); font-size: 12px;">{{ msg.created_at }}</td>
-                        <td><strong>{{ msg.sender }}</strong></td>
-                        <td><strong>{{ msg.receiver }}</strong></td>
+                        <!-- [修改原因]: 将原本只显示纯工号，改为显示“昵称 (工号)”，方便快速辨认发件人和收件人 -->
+                        <td><strong>
+                            {% set sender_display = msg.sender %}
+                            {% for u in all_users %}
+                                {% if u.emp_id == msg.sender %}
+                                    {% set sender_display = (u.nickname or u.emp_id) ~ " (" ~ msg.sender ~ ")" %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ sender_display }}
+                        </strong></td>
+                        <td><strong>
+                            {% set receiver_display = msg.receiver %}
+                            {% for u in all_users %}
+                                {% if u.emp_id == msg.receiver %}
+                                    {% set receiver_display = (u.nickname or u.emp_id) ~ " (" ~ msg.receiver ~ ")" %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ receiver_display }}
+                        </strong></td>
                         <td>
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                                 <div class="msg-preview" title="{{ msg.content }}">{{ msg.content }}</div>
@@ -668,6 +685,21 @@
 
 {% block page_scripts %}
 <script>
+    // [新增原因]: 生成工号到昵称的映射表，以供前端分页渲染邮件列表时，将纯工号转换为“昵称 (工号)”显示
+    // User mapping for formatting "Nickname (Employee ID)"
+    const userMap = {
+        {% for u in all_users %}
+        "{{ u.emp_id }}": "{{ (u.nickname or u.emp_id) | escape }}",
+        {% endfor %}
+    };
+
+    function getUserDisplayName(emp_id) {
+        if (userMap[emp_id]) {
+            return `${userMap[emp_id]} (${emp_id})`;
+        }
+        return emp_id;
+    }
+
     // [安全] Private Key 永远不在 HTML 源码中渲染，
     // 复制按钮会即时调用 /admin/users/{empId}/key 拉取明文，写入剪贴板后立即丢弃，避免截图泄漏。
     async function copyKey(empId) {
@@ -1126,8 +1158,8 @@
                 
             tr.innerHTML = `
                 <td style="color: var(--tz-text-muted); font-size: 12px;">${msg.created_at}</td>
-                <td><strong>${msg.sender}</strong></td>
-                <td><strong>${msg.receiver}</strong></td>
+                <td><strong>${getUserDisplayName(msg.sender)}</strong></td>
+                <td><strong>${getUserDisplayName(msg.receiver)}</strong></td>
                 <td>
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                         <div class="msg-preview" title="${msg.content.replace(/"/g, '&quot;')}">${msg.content}</div>
