@@ -21,7 +21,7 @@ API_KEY = os.environ.get("TUZHAN_API_KEY", "")
 WORKSPACE_DIR = os.environ.get("TUZHAN_WORKSPACE", os.getcwd())
 
 # 本地当前版本号，每次代码升级时修改此处
-LOCAL_VERSION = "v1.0.0"
+LOCAL_VERSION = "v2.1.0"
 # ==========================================
 
 def get_headers():
