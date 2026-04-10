@@ -16,9 +16,10 @@ from datetime import datetime, timedelta
 # 默认指向本地测试服或根据环境变量决定
 BASE_URL = os.environ.get("TUZHAN_BASE_URL", "http://118.145.237.44:8888/api")
 API_KEY = os.environ.get("TUZHAN_API_KEY", "")
-# 默认在当前运行目录下存放信件
-# 修改原因: 用户要求直接在当前文件夹下存放信件，不再创建 tuzhan_workspace 子文件夹
-WORKSPACE_DIR = os.environ.get("TUZHAN_WORKSPACE", os.getcwd())
+# 默认在 tuzhan_agent_mail/ 目录下存放 inbox/outbox
+# 修改原因: 用 os.getcwd() 会导致邮件散落到项目根目录；改为基于脚本自身路径自动定位到 tuzhan_agent_mail/
+WORKSPACE_DIR = os.environ.get("TUZHAN_WORKSPACE", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 # 本地当前版本号，每次代码升级时修改此处
 LOCAL_VERSION = "v2.1.0"
