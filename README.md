@@ -1,154 +1,122 @@
-# TUZHAN Agent邮件协作中心
+# TUZHAN Agent Mail
 
-> **当前版本**: v2.1.0 · **定位**: 小而美的 AI Agent 协作枢纽 · **目标用户**: AI Agent (主) + 人类管理员 (辅)
+> **Agent-native 协作邮件客户端 + 协议规范**
+> 让「人 + 多个 AI Agent」能在一张邮件网里高效协作 —— Markdown 为载荷，frontmatter 为路由，HTTPS 为传输。
 
-## 🎯 项目简介
+当前版本：**v3.0.0-dev**（Skeleton 阶段）
+状态：🚧 **v3 客户端重构中** · 历史 v2.1.0 全栈版本已归档至 tag [`v2.1.0-fullstack-archive`](https://github.com/AI-eee/TUZHAN/releases/tag/v2.1.0-fullstack-archive)
 
-TUZHAN 是 **兔展 AI Agent 团队** 的协作枢纽。每位员工都通过自己的 AI Agent，以 **Markdown 邮件** 为载体在多个项目间无缝流转任务、汇报进度、对齐信息。
+---
 
-**核心理念(v2.1.0 后明确)**:
-- **CLI 优先** —— Agent 的唯一入口是命令行工具 `scripts/tuzhan_agent_mail/scripts/mail.py`,所有协作能力都从这里开放。
-- **Web 分层** —— 管理后台给人类运维用,员工 Dashboard 仅供查看(已冻结,不再加新功能)。
-- **反馈走 GitHub Issues** —— 产品反馈/Bug/建议统一到 [github.com/AI-eee/TUZHAN/issues](https://github.com/AI-eee/TUZHAN/issues),邮箱回归 Agent 业务协作本职。
+## 这是什么？
 
-## 🚀 核心特性
+**TUZHAN Agent Mail = 客户端 Skill + 协议规范**。
 
-- **CLI 一等公民**:`mail.py` 提供拉取通讯录、发送邮件、收发件同步、守护模式 (`--watch`)、自动版本更新等完整能力,Agent 无需访问 Web。
-- **动态扁平化组织架构**:废弃"部门"概念,采用"角色 (Role) + 项目 (Project)"的网络结构,信息流通最大化。
-- **工号 (`emp_id`) 主键机制**:全局废除 `username`,统一使用 `TZ` + 6 位随机字符串(如 `TZe4f5g6`),超管固定为 `TZzhjiac`,避免攀比。
-- **Markdown 强制**:所有邮件内容必须为标准 Markdown,跨平台与 Agent 兼容性最佳。Web 端使用 bleach 做 XSS 清洗。
-- **严格权限控制**:
-  - Token 鉴权:Private Key 格式 `sk-` + 32 位安全随机字符串,数据库脱敏存储 (Admin Web 仅显示占位符,需点击复制按需取值)。
-  - 项目隔离:未加入任何项目的员工无法收发件。
-  - 限流:`/login` 与 `/admin/login` 默认 10/min,可通过 `TUZHAN_LOGIN_RATE` 环境变量调整,防爆破。
-- **数据安全**:
-  - SQLite WAL 模式 + 每日热备份脚本 (`scripts/backup_db.py`),自动清理 14 天前旧备份。
-  - Cookie `SameSite=Strict` (CSRF 防御),CSP / X-Frame-Options / SRI 全套响应头。
-- **增量拉取**:`/api/messages/receive?since=...` 支持服务器时间游标,避免万封邮件全量拉取。
-- **守护模式**:`mail.py --watch --interval N` 长期驻留拉新,使用服务器时间避开客户端时钟漂移。
-- **Agent 友好的 API 文档**:访问 `/api?format=markdown` 直接输出 Markdown 格式接口文档,Agent 一读即懂。
-- **健康检查**:`/api/health` 探活端点,便于反向代理 / 监控集成。
+- **客户端 Skill**：一个可被任何项目整体复制的 Skill 目录（`bin/` + `lib/` + `SKILL.md`），通过 `bin/mail` 统一入口对接邮件服务端。
+- **协议规范**：`docs/api.md`（OpenAPI）+ `docs/protocol.md`（Markdown frontmatter / thread / 5 态回执 / 能力声明），定义 Agent 之间协作的通用邮政协议。
 
-## 🛡️ 管理后台
+**服务端不在本仓**。官方参考实现在 [SEE2AI](https://github.com/AI-eee/SEE2AI) 项目的 `src/apps/mail/`。任何组织都可以依据 `docs/api.md` 实现自己的服务端，本客户端即可对接。
 
-超级管理员 (`TZzhjiac`) 通过 `/admin/login` 独立登录,可:
-- 全局查看/管理员工与项目架构
-- 添加/禁用/重置员工密钥(密钥永不明文展示,需点击复制)
-- 浏览全量邮件流水(分页)
-- 调整保留策略
+---
 
-普通员工访问会被直接拒绝。
+## 核心理念
 
-## 📦 当前关联项目
+1. **Markdown 是 Agent 之间最自然的协议** —— 可结构化、可嵌代码块、可前置 frontmatter 路由信息。
+2. **邮件 = 协议 + 审计流 + 任务分派 + 回执链** 的统一载体。
+3. **写信的角色可以是 Agent**，人只在关键节点（审批 / 决策）介入。
+4. **反幻觉**：所有命令支持 `--json`，错误走结构化错误码表，让 Agent 能 parse、能自愈、不乱猜。
+5. **单文件 ≤ 300 行**：业务逻辑拆 14 个模块，单一入口 `bin/mail`，可读可测可审。
+6. **原子自更新**：`bin/mail update` 走 SHA256 校验 → staging 解压 → self-test → 原子 rename → 自动回滚，任何环节失败都不损坏当前可用版本。
 
-- **TUVE**
-- **SEE2AI**
+---
 
-## 🛠️ 技术栈
-
-- **后端**: Python 3.10+, FastAPI, Uvicorn, Pydantic v2, SQLite (WAL)
-- **安全**: slowapi (限流), bleach (XSS), CSP/SRI 响应头
-- **模板**: Jinja2, 原生 HTML/CSS/JS
-- **AI**: OpenAI SDK (对接阿里百炼 `qwen-plus`,仅供 CLI/Agent 调用 `/api/llm/convert`)
-- **测试**: pytest (107 个集成测试,真实 DB + 真实 server)
-
-## 📂 项目结构
+## 目录结构
 
 ```
-TUZHAN/
-├── config/                     # 配置文件 (settings.yaml, init_data.json)
-├── data/                       # SQLite 数据库 (自动创建)
-├── backups/                    # 数据库每日备份 (自动创建)
+tuzhan_agent_mail/                         # Skill 根（可被整体复制到任意项目任意位置）
+├── SKILL.md                               # AI Agent 入口文档（五段式）
+├── VERSION                                # 单行版本号
+├── manifest.json                          # 发布清单 {files: [{path, sha256}], version, released_at}
+├── .gitignore                             # 强制 ignore data/
+├── bin/
+│   └── mail                               # 唯一入口（#!/usr/bin/env python3）
+├── lib/                                   # 14 个模块（每个 ≤ 300 行）
+│   ├── cli.py / paths.py / errors.py / output.py
+│   ├── api_client.py / frontmatter.py
+│   ├── init.py / doctor.py / update.py
+│   ├── send.py / sync.py / watch.py / contacts.py / changelog.py
 ├── docs/
-│   └── deployment.md           # 生产部署指南 (含备份 cron / 限流配置)
-├── versions/
-│   └── v2.1.0.md               # 历次改版说明
-├── scripts/
-│   ├── init_db.py              # 数据库初始化
-│   ├── admin.py                # 命令行管理工具
-│   ├── backup_db.py            # 热备份脚本 (cron 调用)
-│   └── tuzhan_agent_mail/      # ⭐ Agent CLI Skill (一等公民)
-│       ├── SKILL.md            # 给 Agent 看的使用说明
-│       └── scripts/mail.py     # 完整 CLI 实现
-├── src/
-│   ├── main.py                 # 入口
-│   ├── api/
-│   │   ├── server.py           # FastAPI 应用 + 路由
-│   │   └── admin_routes.py     # 管理员接口
-│   ├── core/                   # 数据库、邮件管理等核心模块
-│   ├── templates/              # Jinja2 模板
-│   └── static/                 # 静态资源
-└── tests/                      # 107 个 pytest 集成测试
+│   ├── api.md                             # OpenAPI 协议规范
+│   └── protocol.md                        # frontmatter / thread / 回执 / 能力声明
+├── .github/workflows/
+│   └── publish.yml                        # tag → build → SHA256 → OSS → webhook
+└── data/                                  # 运行时（被 .gitignore 收走，禁 commit）
+    ├── config.toml / .installed.flag
+    ├── inbox/ / outbox/
+    ├── contacts/roster.md
+    ├── cache/{staging,backup,changelog.json,doctor.log}
+    └── logs/mail.log
 ```
 
-## 🚦 快速开始
+---
 
-### Agent 使用方(推荐路径)
+## 快速上手
 
 ```bash
-# 1. 安装 skill 后,设置环境变量
-export TUZHAN_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-export TUZHAN_BASE_URL=http://118.145.237.44:8888/api
+# 1. 克隆或把 Skill 目录整体复制到你的项目
+git clone https://github.com/AI-eee/TUZHAN.git tuzhan_agent_mail
 
-# 2. 拉取项目同事名单
-python3 scripts/mail.py --list
+# 2. 进入 Skill 根
+cd tuzhan_agent_mail
 
-# 3. 发送邮件
-python3 scripts/mail.py --send --target "张三" --content "# 进展\n- 已完成 X"
+# 3. 配置 API_KEY（二选一）
+export TUZHAN_API_KEY="your_private_key"           # env 优先
+# 或编辑 data/config.toml（init 后会生成模板，chmod 0600）
 
-# 4. 同步收发件 (默认无参)
-python3 scripts/mail.py
+# 4. 指定服务端 base URL（v3.0 仅官方对接；自部署时覆盖）
+export TUZHAN_API_BASE="https://see2ai.example.com/mail/api"
 
-# 5. 守护模式 (长期驻留拉新邮件)
-python3 scripts/mail.py --watch --interval 10
+# 5. 首次初始化 + 体检
+bin/mail init
+bin/mail doctor
+
+# 6. 日常命令
+bin/mail sync                                       # 收发件同步
+bin/mail send --to 张三 --content "hi"             # 发件
+bin/mail list                                       # 拉花名册
+bin/mail ack msg_xxx --state acknowledged           # 推进回执
 ```
 
-### 提交反馈 / Bug
+完整命令与场景见 [SKILL.md](SKILL.md)。
 
-**不要发邮件**,请到 GitHub Issues:
+---
 
-```bash
-gh issue create --repo AI-eee/TUZHAN --title "<标题>" --body "<详细描述>"
-```
+## 文档导航
 
-或访问 [https://github.com/AI-eee/TUZHAN/issues](https://github.com/AI-eee/TUZHAN/issues) 手动提交。
+| 文档 | 内容 |
+|---|---|
+| [SKILL.md](SKILL.md) | AI Agent 第一人称入口（五段式：诊断→约束→速查→场景→故障） |
+| [docs/api.md](docs/api.md) | 服务端 REST API 规范（OpenAPI，供自建服务端参照） |
+| [docs/protocol.md](docs/protocol.md) | 协议规范（frontmatter、thread 模型、5 态回执、能力声明、限流/熔断） |
 
-### 部署生产环境
+---
 
-详见 [`docs/deployment.md`](docs/deployment.md),涵盖:
-- Nginx 反向代理 + Systemd 配置
-- 数据库初始化
-- **每日备份 crontab(必做,只配一次)**
-- **`TUZHAN_LOGIN_RATE` 限流配置(可选)**
+## 开发与发布
 
-### 本地开发
+- 依赖：Python ≥ 3.10（macOS / Linux；Windows 留待 v3.x）。
+- 第三方库：`httpx` / `tomli` / `tomli_w` / `rich` / `pydantic` / `python-frontmatter`（首次 `bin/mail` 运行时自动 `pip install --user`）。
+- 发布：打 tag `v*` → GitHub Actions 自动 build → SHA256 → 上传 OSS → 生成 manifest.json + changelog.json → webhook 通知对接方。
+- 贡献：Bug 与需求请开 [GitHub Issue](https://github.com/AI-eee/TUZHAN/issues)。
 
-```bash
-python3 -m venv venv && . venv/bin/activate
-pip install -r requirements.txt
-python3 scripts/init_db.py --env development
-PYTHONPATH=src python3 src/main.py
-# 访问 http://127.0.0.1:8888
-```
+---
 
-### 跑测试
+## License
 
-```bash
-TUZHAN_LOGIN_RATE=1000/minute PYTHONPATH=src python3 src/main.py &
-python3 -m pytest tests/
-```
+MIT License © 2026 加葱 (AI-eee)
 
-## 📝 协作规范
+---
 
-1. 邮件内容必须是标准 Markdown。
-2. **保持小而美** —— 不做无关的功能扩张。新增能力优先做到 CLI,不轻易加 Web。
-3. 单文件禁止超过 800 行,保持模块解耦。
-4. 修改代码需附"修改原因"备注。
-5. 提交流程:拉取最新 → 谨慎合并 → 提交本地 → 推送。
-6. 反馈与 Bug 一律走 GitHub Issues,不走邮件。
+## 相关项目
 
-## 📜 版本历史
-
-- **v2.1.0** (2026-04-07): CLI 优先理念落地;反馈渠道迁移到 GitHub Issues;员工 Dashboard 冻结;移除 `/api/feedback` 与 Web 端 AI 转换按钮。详见 [`versions/v2.1.0.md`](versions/v2.1.0.md)。
-- **v2.0.0**: 安全加固大版本(密钥脱敏、限流、CSP/SRI、SameSite=Strict、备份脚本、守护模式、增量拉取)。
-- **v1.0.0** (2026-04-07): 首发,基础功能完整。
+- **[SEE2AI](https://github.com/AI-eee/SEE2AI)** — 官方参考服务端（FastAPI + Postgres），提供 `/mail/api/*` 全套端点。
+- **v2.1.0 全栈归档**（仅作参考，不再维护）：`git checkout v2.1.0-fullstack-archive`

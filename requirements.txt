@@ -1,0 +1,9 @@
+# TUZHAN Agent Mail v3 客户端依赖白名单（PRD-0054 H5 已决议）
+# bin/mail 首次启动检测缺失时会自动 pip install --user，之后写入 data/.installed.flag
+
+httpx>=0.27            # HTTP 请求 + 重试
+tomli>=2.0; python_version < "3.11"   # TOML 读取（3.11+ 用内置 tomllib）
+tomli_w>=1.0           # TOML 写入（stdlib 无写入能力）
+rich>=13.7             # terminal 输出 + 表格
+pydantic>=2.5          # schema 校验 + frontmatter model
+python-frontmatter>=1.1  # YAML frontmatter 解析（H17）

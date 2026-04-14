@@ -1,0 +1,32 @@
+# .github/workflows/publish.yml — 占位
+#
+# 🚧 v3 Skeleton 阶段占位文件。完整实现由 P0-5 批次产出。
+#
+# 目标流程（PRD-0054 H7）：
+#   on: push tags 'v*'
+#     1. checkout
+#     2. python -m pip install -r requirements.txt
+#     3. 构建 zip：bin/ lib/ docs/ SKILL.md VERSION .gitignore requirements.txt
+#     4. 计算 SHA256 生成 manifest.json + changelog.json（基于 git log）
+#     5. 上传到 OSS (s3://tuzhan-public/releases/v{VERSION}/)
+#     6. 提交 manifest.json + changelog.json 回仓（autocommit）
+#     7. POST webhook 到 SEE2AI /mail/api/internal/version-bump（HMAC 签名）
+#
+# 秘钥（GitHub Actions Secrets 需要配置）：
+#   OSS_ENDPOINT / OSS_ACCESS_KEY / OSS_SECRET_KEY / OSS_BUCKET
+#   SEE2AI_WEBHOOK_URL / SEE2AI_WEBHOOK_SECRET
+
+name: publish
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: |
+          echo "P0-5 尚未实现。tag=${GITHUB_REF_NAME} 仅触发占位任务。"
+          exit 0

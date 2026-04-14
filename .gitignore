@@ -1,27 +1,44 @@
-# 环境配置文件，包含敏感密钥
-.env
+# ============================================================
+# TUZHAN Agent Mail — v3 客户端 Skill
+# 原则：仓库只含"源码 + 文档 + 元数据"，所有运行时数据严禁入库
+# ============================================================
 
-# SQLite 数据库文件，保护系统数据安全
-# 整个 data/ 目录都是运行时产物 (数据库 + WAL 辅助文件 + 旧备份),不入库
+# 运行时数据（inbox/outbox/contacts/cache/logs/config.toml 全部在此）
+# 这是 v3 架构的核心契约：data/ 永远是本地状态，禁止 commit
 data/
-# 数据库每日热备份目录,只在生产服上落盘
-backups/
 
-# Python 缓存文件
+# 敏感信息
+.env
+.env.*
+*.key
+*.pem
+
+# Python 缓存
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# 虚拟环境目录
+# 虚拟环境
 venv/
+.venv/
 env/
 ENV/
 
-# Mac OS 隐藏文件
+# 构建产物（tag 触发 CI 时会在 dist/ 打包 zip）
+dist/
+build/
+*.zip
+*.tar.gz
+
+# IDE / OS
 .DS_Store
+.idea/
+.vscode/
+*.swp
 
-# npm 依赖目录，包含大量生成的包文件，避免占用仓库体积
-node_modules/
-
-# 个人专属技能配置，不提交到项目共享仓库中
+# 遗留目录（v2.x 老客户端个性化配置，v3 不再使用）
 tuzhan_workspace/
