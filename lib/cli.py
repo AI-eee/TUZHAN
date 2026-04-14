@@ -53,16 +53,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         parser.print_help()
         return 1
 
-    # TODO(P0-3/P0-9): 将每个命令 dispatch 到 lib.<command>.run(args)
-    from lib.errors import NotImplementedYet
+    as_json = getattr(args, "json", False)
+
+    # —— P0-3 已实现：init + doctor ——
+    if args.command == "init":
+        from lib.init import run as run_init
+        return run_init(as_json=as_json)
+
+    if args.command == "doctor":
+        verbose = "--verbose" in (args.args or [])
+        from lib.doctor import run as run_doctor
+        return run_doctor(as_json=as_json, verbose=verbose, autofix=True)
+
+    # —— 其他命令：P0-9 批次实现 ——
+    from lib.errors import MailError, NotImplementedYet
     from lib.output import emit_error
 
-    err = NotImplementedYet(
-        command=args.command,
-        hint="v3.0.0 skeleton 阶段，此命令尚未实现。请等待 P0-3 / P0-9 批次。",
-    )
-    emit_error(err, as_json=getattr(args, "json", False), command=args.command)
-    return err.exit_code
+    try:
+        err = NotImplementedYet(
+            command=args.command,
+            hint="此命令将在 P0-9 批次实现。当前 v3.0.0-dev 仅开放 init + doctor。",
+        )
+        emit_error(err, as_json=as_json, command=args.command)
+        return err.exit_code
+    except MailError as e:
+        emit_error(e, as_json=as_json, command=args.command)
+        return e.exit_code
 
 
 if __name__ == "__main__":
