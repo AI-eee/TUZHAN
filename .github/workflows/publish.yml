@@ -1,20 +1,20 @@
-# .github/workflows/publish.yml — 占位
+# .github/workflows/publish.yml
 #
-# 🚧 v3 Skeleton 阶段占位文件。完整实现由 P0-5 批次产出。
+# TUZHAN Agent Mail v3 发布流水线（PRD-0054 H7）
 #
-# 目标流程（PRD-0054 H7）：
-#   on: push tags 'v*'
-#     1. checkout
-#     2. python -m pip install -r requirements.txt
-#     3. 构建 zip：bin/ lib/ docs/ SKILL.md VERSION .gitignore requirements.txt
-#     4. 计算 SHA256 生成 manifest.json + changelog.json（基于 git log）
-#     5. 上传到 OSS (s3://tuzhan-public/releases/v{VERSION}/)
-#     6. 提交 manifest.json + changelog.json 回仓（autocommit）
-#     7. POST webhook 到 SEE2AI /mail/api/internal/version-bump（HMAC 签名）
+# 触发：push tag v*
+# 步骤：
+#   1. checkout
+#   2. setup Python 3.11（打包不依赖 runtime python 3.10+）
+#   3. 校验 VERSION 文件 == tag
+#   4. build_release.py → dist/{zip, manifest.json, release.sha256, changelog.json}
+#   5. upload_release.py → S3/OSS 上传
+#   6. notify_webhook.py → HMAC 通知 SEE2AI（缺 secret 时自动跳过）
+#   7. create GitHub Release（带 zip 附件 + changelog）
 #
-# 秘钥（GitHub Actions Secrets 需要配置）：
-#   OSS_ENDPOINT / OSS_ACCESS_KEY / OSS_SECRET_KEY / OSS_BUCKET
-#   SEE2AI_WEBHOOK_URL / SEE2AI_WEBHOOK_SECRET
+# Secrets 必需：
+#   OSS_ENDPOINT / OSS_ACCESS_KEY / OSS_SECRET_KEY / OSS_BUCKET / OSS_PREFIX / OSS_PUBLIC_URL
+#   SEE2AI_WEBHOOK_URL / SEE2AI_WEBHOOK_SECRET   （缺失则 notify 步骤跳过但不失败）
 
 name: publish
 on:
@@ -22,11 +22,74 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write  # 创建 GitHub Release 需要
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # changelog 需要完整 git log
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install boto3
+        run: python -m pip install --quiet boto3
+
+      - name: Verify VERSION matches tag
         run: |
-          echo "P0-5 尚未实现。tag=${GITHUB_REF_NAME} 仅触发占位任务。"
-          exit 0
+          TAG="${GITHUB_REF_NAME}"
+          FILE="$(cat VERSION)"
+          if [ "$TAG" != "$FILE" ]; then
+            echo "::error ::VERSION 文件 ($FILE) 与 tag ($TAG) 不一致"
+            exit 1
+          fi
+
+      - name: Build release
+        id: build
+        run: python3 scripts/ci/build_release.py "${GITHUB_REF_NAME}"
+
+      - name: Upload to OSS
+        id: upload
+        env:
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY }}
+          OSS_SECRET_KEY: ${{ secrets.OSS_SECRET_KEY }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_PREFIX: ${{ secrets.OSS_PREFIX }}
+          OSS_PUBLIC_URL: ${{ secrets.OSS_PUBLIC_URL }}
+        run: python3 scripts/ci/upload_release.py "${GITHUB_REF_NAME}"
+
+      - name: Notify SEE2AI webhook
+        env:
+          SEE2AI_WEBHOOK_URL: ${{ secrets.SEE2AI_WEBHOOK_URL }}
+          SEE2AI_WEBHOOK_SECRET: ${{ secrets.SEE2AI_WEBHOOK_SECRET }}
+          ZIP_URL: ${{ steps.upload.outputs.zip_url }}
+          MANIFEST_URL: ${{ steps.upload.outputs.manifest_url }}
+          ZIP_SHA256: ${{ steps.build.outputs.zip_sha256 }}
+        run: python3 scripts/ci/notify_webhook.py "${GITHUB_REF_NAME}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            **TUZHAN Agent Mail ${{ github.ref_name }}**
+
+            - zip: ${{ steps.upload.outputs.zip_url }}
+            - manifest: ${{ steps.upload.outputs.manifest_url }}
+            - sha256: `${{ steps.build.outputs.zip_sha256 }}`
+
+            详细 changelog 见 [changelog.json](./changelog.json) 根条目。
+          files: |
+            dist/tuzhan-agent-mail-${{ github.ref_name }}.zip
+            dist/manifest.json
+            dist/release.sha256
+          fail_on_unmatched_files: true
