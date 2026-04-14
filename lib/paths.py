@@ -65,3 +65,35 @@ def logs_dir(profile: str = "default") -> Path:
 
 def mail_log(profile: str = "default") -> Path:
     return logs_dir(profile) / "mail.log"
+
+
+def sync_state(profile: str = "default") -> Path:
+    return data_dir(profile) / ".sync_state.json"
+
+
+def doctor_log(profile: str = "default") -> Path:
+    return cache_dir(profile) / "doctor.log"
+
+
+def changelog_cache(profile: str = "default") -> Path:
+    return cache_dir(profile) / "changelog.json"
+
+
+def ensure_data_dirs(profile: str = "default") -> None:
+    """幂等地创建 data/ 下全部子目录（首次 init 或 doctor --autofix 调用）。"""
+    for d in (
+        data_dir(profile),
+        inbox_dir(profile),
+        outbox_dir(profile),
+        data_dir(profile) / "contacts",
+        cache_dir(profile),
+        staging_dir(profile),
+        backup_dir(profile),
+        logs_dir(profile),
+    ):
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def read_version() -> str:
+    """从 VERSION 文件读取当前版本（去 trailing whitespace）。"""
+    return VERSION_FILE.read_text(encoding="utf-8").strip()

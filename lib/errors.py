@@ -107,3 +107,76 @@ class CircuitOpen(MailError):
             context={"account": account} if account else {},
             exit_code=75,
         )
+
+
+class AuthFail(MailError):
+    def __init__(self, status: int = 401):
+        super().__init__(
+            code="auth_fail",
+            message=f"服务端认证失败（HTTP {status}）",
+            hint="检查 TUZHAN_API_KEY 是否正确、是否过期、账号是否被管理员禁用",
+            context={"status": status},
+            exit_code=77,  # EX_NOPERM
+        )
+
+
+class DependencyMissing(MailError):
+    def __init__(self, pkg: str, hint: str = ""):
+        super().__init__(
+            code="dependency_missing",
+            message=f"缺少依赖：{pkg}",
+            hint=hint or f"运行 pip install --user -r requirements.txt，或单独 pip install --user {pkg}",
+            context={"package": pkg},
+            exit_code=69,  # EX_UNAVAILABLE
+        )
+
+
+class SchemaViolation(MailError):
+    def __init__(self, detail: str, field_path: str = ""):
+        super().__init__(
+            code="schema_violation",
+            message=f"响应 schema 校验失败：{detail}",
+            hint="可能服务端版本不兼容，请 bin/mail version 对比版本并升级",
+            context={"detail": detail, "field_path": field_path},
+            exit_code=65,
+        )
+
+
+class ChecksumFail(MailError):
+    def __init__(self, expected: str, actual: str):
+        super().__init__(
+            code="checksum_fail",
+            message="SHA256 校验失败，可能下载被篡改或损坏",
+            hint="删除 data/cache/staging/ 后重试；如持续失败请核对 CDN 与 manifest 一致性",
+            context={"expected": expected, "actual": actual},
+            exit_code=65,
+        )
+
+
+class NoMatch(MailError):
+    def __init__(self, query: str, candidates: Optional[list] = None):
+        super().__init__(
+            code="no_match",
+            message=f"无法在花名册中定位 `{query}`",
+            hint="先跑 bin/mail list 拉取最新花名册；或用 emp_id 精确指定",
+            context={"query": query, "candidates": candidates or []},
+            exit_code=65,
+        )
+
+
+class ApiErrorFromServer(MailError):
+    """服务端信封返回 {ok: false, code, message, hint} 时，客户端封装。
+
+    与 RateLimited / CircuitOpen / AuthFail 等 HTTP 状态码映射的错误不同，
+    ApiErrorFromServer 用于承载服务端自定义业务错误码（如 frontmatter_invalid、
+    thread_not_found、capability_required 等）。
+    """
+
+    def __init__(self, code: str, message: str, hint: str = "", context: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            code=code,
+            message=message,
+            hint=hint,
+            context=context or {},
+            exit_code=65,
+        )

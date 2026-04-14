@@ -61,7 +61,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         command=args.command,
         hint="v3.0.0 skeleton 阶段，此命令尚未实现。请等待 P0-3 / P0-9 批次。",
     )
-    emit_error(err, as_json=getattr(args, "json", False))
+    emit_error(err, as_json=getattr(args, "json", False), command=args.command)
     return err.exit_code
 
 
